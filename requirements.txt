@@ -1,0 +1,5 @@
+sqlalchemy
+PyYAML
+playwright
+python-dateutil
+typer
