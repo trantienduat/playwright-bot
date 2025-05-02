@@ -66,10 +66,3 @@ def download_by_url(url, download_folder, filename="downloaded_invoice.pdf"):
     except requests.exceptions.RequestException as e:
         print(f"Error downloading PDF: {e}")
         return False
-
-if __name__ == "__main__":
-    # The specific URL for the PDF
-    url = "https://www.meinvoice.vn/tra-cuu/DownloadHandler.ashx?Type=pdf&Viewer=1&Code=VBHJTLK3WXR8"
-    
-    # Download the PDF
-    download_meinvoice_pdf(url, "downloads", filename="invoice.pdf")

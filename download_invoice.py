@@ -7,7 +7,7 @@ import sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from db import get_invoices
-from models import Invoice, init_db
+from models import Invoice, init_db, TaxProvider
 from typing import Dict
 import requests
 from playwright.sync_api import sync_playwright
@@ -21,7 +21,68 @@ class InvoiceDownloader:
 
 class ViettelDownloader(InvoiceDownloader):
     def download(self, invoice: Invoice, output_path: Path) -> bool:
-        return False
+        """
+        Download invoice using Viettel's invoice search page with Playwright.
+        
+        Args:
+            invoice (Invoice): Invoice object containing details.
+            output_path (Path): Path to save the downloaded invoice.
+        
+        Returns:
+            bool: True if download is successful, False otherwise.
+        """
+        url = "https://vinvoice.viettel.vn/utilities/invoice-search"
+        download_dir = output_path.parent
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=False)
+            context = browser.new_context(accept_downloads=True)
+            page = context.new_page()
+            try:
+                # Open the invoice search page
+                page.goto(url)
+                print(f"🌐 Opened URL: {url}")
+
+                # Fill in the form fields
+                print(f"🔍 Filling form for invoice: {invoice.tracking_code}")
+                if not invoice.seller.tax_code or not invoice.tracking_code:
+                    raise ValueError("Missing required fields: seller.tax_code or tracking_code")
+
+                page.fill("[formcontrolname='supplierTaxCode']", invoice.seller.tax_code)
+                page.fill("[formcontrolname='reservationCode']", invoice.tracking_code)
+
+                # Wait for user to complete CAPTCHA
+                print(f"⚠️ Please complete the CAPTCHA manually in the browser...")
+                time.sleep(10)  # Allow time for CAPTCHA completion
+
+                # Submit the form
+                print(f"🔍 Submitting form...")
+                page.click("button[type='submit']")
+                time.sleep(3)  # Wait for the results to load
+
+                # Click the download button
+                print(f"📥 Downloading invoice...")
+                with page.expect_download() as download_info:
+                    page.click("[class='btn btn-link mr-2']")
+                download = download_info.value
+
+                # Save the downloaded file
+                temp_file_path = download_dir / "temp_invoice.pdf"
+                download.save_as(str(temp_file_path))
+                print(f"✅ Downloaded temporary file: {temp_file_path}")
+
+                # Rename the downloaded file
+                new_filename = f"{invoice.invoice_series}_{invoice.invoice_number}.pdf"
+                new_file_path = download_dir / new_filename
+                os.rename(temp_file_path, new_file_path)
+                print(f"📁 Renamed to: {new_file_path}")
+
+                return True
+            except Exception as e:
+                print(f"❌ Error downloading invoice: {e}")
+                return False
+            finally:
+                browser.close()
 
 class VNPTDownloader(InvoiceDownloader):
     def download(self, invoice: Invoice, output_path: Path) -> bool:
@@ -121,21 +182,29 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
             filename = f"{invoice.invoice_series}_{invoice.invoice_number}.pdf"
             filepath = output_path / filename
             
-            # Skip if already downloaded
+            # Check if already downloaded
             if filepath.exists():
+                if not invoice.is_downloaded:
+                    invoice.is_downloaded = 1
+                    session.commit()
                 print(f"⏭ Skipping existing {filename}")
                 continue
-                
-            # Get tax_provider name from tax_provider_id
-            tax_provider_id = getattr(invoice, 'tax_provider_id', None)
+            
+            # Fetch tax_provider using tax_provider_id
+            tax_provider_id = invoice.tax_provider_id
             if not tax_provider_id:
                 print(f"❌ No tax_provider_id found for {filename}")
                 continue
             
-            # Fetch tax_provider name (assuming a method or mapping exists)
-            tax_provider_name = invoice.tax_provider.name if invoice.tax_provider else None
+            # Query the tax_provider from the database
+            tax_provider = session.query(TaxProvider).filter_by(id=tax_provider_id).first()
+            if not tax_provider:
+                print(f"❌ No tax provider found for tax_provider_id: {tax_provider_id}")
+                continue
+            
+            tax_provider_name = tax_provider.name
             if not tax_provider_name:
-                print(f"❌ No tax provider name found for tax_provider_id: {tax_provider_id}")
+                print(f"❌ Tax provider name is missing for tax_provider_id: {tax_provider_id}")
                 continue
             
             # Get appropriate downloader
@@ -148,6 +217,8 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
                 success = downloader.download(invoice, filepath)
                 if success:
                     print(f"✅ Downloaded {filename}")
+                    invoice.is_downloaded = 1
+                    session.commit()
                     index['invoices'].append({
                         'filename': filename,
                         'series': invoice.invoice_series,
@@ -191,9 +262,6 @@ if __name__ == "__main__":
                       help='Output directory (default: downloads)')
     
     args = parser.parse_args()
-    
-    # Initialize database if needed
-    init_db()
     
     # Download invoices
     download_invoices(

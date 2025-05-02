@@ -1,45 +1,45 @@
 tax_providers:
   softdreams:
-    url: https://tracuu.easyinvoice.vn/
-    status: RESOLVED
-    note: Working properly
+    search_url: https://tracuu.easyinvoice.vn/
+    status: TBD
+    note: null
   dna:
-    url: https://hoadondientu.gdt.gov.vn/tra-cuu
+    search_url: https://hoadondientu.gdt.gov.vn/tra-cuu
     status: TBD
     note: null
   misa:
-    url: https://www.meinvoice.vn/tra-cuu/
-    status: TBD
-    note: null
+    search_url: https://www.meinvoice.vn/tra-cuu/
+    status: RESOLVED
+    note: Working properly
   invoice:
-    url: https://tracuuhoadon.minvoice.com.vn/
+    search_url: https://tracuuhoadon.minvoice.com.vn/
     status: TBD
     note: null
   viettel:
-    url: https://sinvoice-viettel.vn/tra-cuu-hoa-don/
+    search_url: https://vinvoice.viettel.vn/utilities/invoice-search
     status: TBD
     note: null
   bkav:
-    url: https://tracuu.ehoadon.vn/
+    search_url: https://tracuu.ehoadon.vn/
     status: TBD
     note: null
   wintech:
-    url: https://tracuu.wininvoice.vn/
+    search_url: https://tracuu.wininvoice.vn/
     status: TBD
     note: null
   thaison:
-    url: https://einvoice.vn/tra-cuu
+    search_url: https://einvoice.vn/tra-cuu
     status: TBD
     note: null
   buuchinhvt:
-    url: https://portaltool-miennam.vnpt-invoice.com.vn/
+    search_url: https://portaltool-miennam.vnpt-invoice.com.vn/
     status: TBD
     note: null
   visnam:
-    url: https://hddt.vin-hoadon.com/
+    search_url: https://hddt.vin-hoadon.com/
     status: TBD
     note: null
   fpt:
-    url: https://tracuuhoadon.fpt.com.vn/
-    status: TBD
-    note: null
+    search_url: https://tracuuhoadon.fpt.com.vn/
+    status: BLOCKED
+    note: not able to find "search code" from xml. reference:https://ketoan247.vn/cach-tra-cuu-hoa-don-goc-cua-ben-ban-tu-file-xml-tren-trang-hoadondientu-gdt-gov-vn-cua-tong-cuc-thue/

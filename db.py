@@ -1,9 +1,10 @@
-from sqlalchemy import create_engine, select, text, func
+from sqlalchemy import create_engine, select, text, func, case
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from pathlib import Path
 import json
 import yaml
-from models import Provider, TaxProvider, Invoice, Base, init_db
+from models import Seller, TaxProvider, Invoice, Base, init_db
 from datetime import datetime, timedelta
 import dateutil.parser
 import typer
@@ -15,8 +16,8 @@ from rich import print as rprint
 app = typer.Typer(help="Invoice Database CLI")
 console = Console()
 
-def load_providers_from_json():
-    """Load provider data from invoices.json"""
+def load_sellers_from_json():
+    """Load seller data from invoices.json"""
     json_path = Path('data/invoices.json')
     if not json_path.exists():
         print("❌ invoices.json not found")
@@ -25,19 +26,19 @@ def load_providers_from_json():
     with open(json_path, 'r', encoding='utf-8') as f:
         invoices = json.load(f)
     
-    # Extract unique providers by tax_code
-    providers = {}
+    # Extract unique sellers by tax_code
+    sellers = {}
     for invoice in invoices:
         tax_code = invoice.get('nbmst')
         name = invoice.get('nbten')
         if tax_code and name:
-            if tax_code not in providers:
-                providers[tax_code] = name
-                print(f"Found provider: {tax_code} - {name}")
+            if tax_code not in sellers:
+                sellers[tax_code] = name
+                print(f"Found seller: {tax_code} - {name}")
     
-    provider_list = [Provider(tax_code=tc, name=name) for tc, name in providers.items()]
-    print(f"\n📊 Total unique providers found: {len(provider_list)}")
-    return provider_list
+    seller_list = [Seller(tax_code=tc, name=name) for tc, name in sellers.items()]
+    print(f"\n📊 Total unique sellers found: {len(seller_list)}")
+    return seller_list
 
 def load_tax_providers_from_json():
     """Load tax provider data from invoices.json and merge with config settings"""
@@ -62,7 +63,7 @@ def load_tax_providers_from_json():
                     name=name,
                     status=settings.get('status', 'TBD'),
                     note=settings.get('note'),
-                    search_url=settings.get('url')
+                    search_url=settings.get('search_url')  # Updated key
                 )
                 tax_providers[name] = provider
                 print(f"Found tax provider: {name} [Status: {provider.status}]")
@@ -92,10 +93,11 @@ def merge_tax_providers(session, new_tax_providers):
         settings = provider_settings.get(tp.name, {})
         if tp.name not in existing:
             rprint(f"[green]+ Adding[/green] {tp.name} [Status: {tp.status}]")
+            tp.search_url = settings.get('search_url')  # Updated key
             merged.append(tp)
         else:
             existing_tp = existing[tp.name]
-            existing_tp.search_url = settings.get('url', existing_tp.search_url)
+            existing_tp.search_url = settings.get('search_url', existing_tp.search_url)  # Updated key
             existing_tp.status = settings.get('status', existing_tp.status)
             existing_tp.note = settings.get('note', existing_tp.note)
             rprint(f"[blue]~ Updated[/blue] {tp.name} [Status: {existing_tp.status}]")
@@ -106,32 +108,32 @@ def merge_tax_providers(session, new_tax_providers):
     session.commit()
     return merged
 
-def merge_providers(session, new_providers):
-    """Merge providers while handling duplicates"""
-    existing = {p.tax_code: p for p in get_existing_providers(session)}
-    print(f"\n💾 Existing providers in DB: {len(existing)}")
+def merge_sellers(session, new_sellers):
+    """Merge sellers while handling duplicates"""
+    existing = {s.tax_code: s for s in get_existing_sellers(session)}
+    print(f"\n💾 Existing sellers in DB: {len(existing)}")
 
     merged = []
     updated = []
-    for provider in new_providers:
-        if provider.tax_code not in existing:
-            print(f"+ Adding new provider: {provider.tax_code} - {provider.name}")
-            merged.append(provider)
+    for seller in new_sellers:
+        if seller.tax_code not in existing:
+            print(f"+ Adding new seller: {seller.tax_code} - {seller.name}")
+            merged.append(seller)
         else:
-            print(f"~ Updating provider: {provider.tax_code} - {provider.name}")
-            existing[provider.tax_code].name = provider.name
-            updated.append(existing[provider.tax_code])
+            print(f"~ Updating seller: {seller.tax_code} - {seller.name}")
+            existing[seller.tax_code].name = seller.name
+            updated.append(existing[seller.tax_code])
     
-    # Add new providers
-    for provider in merged:
-        session.add(provider)
+    # Add new sellers
+    for seller in merged:
+        session.add(seller)
     session.commit()
     
     return merged, updated
 
-def get_existing_providers(session):
-    """Get list of existing providers from DB"""
-    return session.query(Provider).all()
+def get_existing_sellers(session):
+    """Get list of existing sellers from DB"""
+    return session.query(Seller).all()
 
 def get_existing_tax_providers(session):
     """Get list of existing tax providers from DB"""
@@ -148,21 +150,39 @@ def load_invoices_from_json(session):
         raw_invoices = json.load(f)
 
     invoices = []
-    tax_code_to_provider = {p.tax_code: p for p in get_existing_providers(session)}
+    tax_code_to_seller = {s.tax_code: s for s in get_existing_sellers(session)}
     name_to_tax_provider = {tp.name: tp for tp in get_existing_tax_providers(session)}
 
     total_found = 0
     for raw in raw_invoices:
-        tax_code = raw.get('nbmst')
+        tax_code = raw.get('nbmst')  # Seller's tax code
         tax_provider_name = raw.get('ngcnhat', '').replace('tvan_', '') if raw.get('ngcnhat') else None
         
         if not tax_code:
             continue
 
-        provider = tax_code_to_provider.get(tax_code)
+        seller = tax_code_to_seller.get(tax_code)
         tax_provider = name_to_tax_provider.get(tax_provider_name) if tax_provider_name else None
         
-        if not provider:
+        if not seller:
+            continue
+
+        # Extract tracking_code from ttkhac
+        tracking_code = None
+        for field in raw.get('ttkhac', []):
+            if field.get('ttruong') == "Mã số bí mật":
+                tracking_code = field.get('dlieu')
+                break
+
+        # Check if invoice exists using SQL query
+        existing_invoice = session.query(Invoice).filter(
+            Invoice.invoice_form == raw.get('khmshdon'),
+            Invoice.invoice_series == raw.get('khhdon'),
+            Invoice.invoice_number == raw.get('shdon')
+        ).first()
+
+        if existing_invoice:
+            print(f"⏭ Skipping existing invoice: {raw.get('khmshdon')}-{raw.get('khhdon')}-{raw.get('shdon')}")
             continue
 
         invoice = Invoice(
@@ -170,7 +190,8 @@ def load_invoices_from_json(session):
             invoice_series=raw.get('khhdon'),
             invoice_timestamp=dateutil.parser.parse(raw.get('tdlap')) if raw.get('tdlap') else None,
             invoice_number=raw.get('shdon'),
-            provider_id=provider.id if provider else None,
+            tracking_code=tracking_code,  # Set the extracted tracking_code
+            seller_id=seller.id if seller else None,  # Updated to seller_id
             tax_provider_id=tax_provider.id if tax_provider else None
         )
         invoices.append(invoice)
@@ -182,44 +203,33 @@ def load_invoices_from_json(session):
     return invoices
 
 def merge_invoices(session, new_invoices):
-    """Merge invoices while handling duplicates"""
-    with session.no_autoflush:
-        existing = session.query(Invoice).all()
-        existing_keys = {(i.invoice_form, i.invoice_series, i.invoice_timestamp, i.invoice_number) for i in existing}
-        rprint(f"[blue]📊 Existing invoices in DB: {len(existing):,}[/blue]")
-        
-        merged = []
-        batch_size = 100
-        total_batches = len(new_invoices) // batch_size + (1 if len(new_invoices) % batch_size else 0)
-        
-        for batch_num, i in enumerate(range(0, len(new_invoices), batch_size), 1):
-            batch = new_invoices[i:i + batch_size]
-            new_in_batch = 0
-            
-            for invoice in batch:
-                key = (invoice.invoice_form, invoice.invoice_series, invoice.invoice_timestamp, invoice.invoice_number)
-                if key not in existing_keys:
-                    session.add(invoice)
-                    merged.append(invoice)
-                    new_in_batch += 1
-            
-            session.commit()
-            rprint(f"[cyan]⏳ Batch {batch_num}/{total_batches}: Added {new_in_batch} new invoices[/cyan]")
-        
-        rprint(f"[green]✓ Successfully merged {len(merged):,} new invoices[/green]")
+    """Merge invoices while handling duplicates using database constraints"""
+    merged = []
+    for invoice in new_invoices:
+        try:
+            session.add(invoice)
+            session.flush()
+            merged.append(invoice)
+        except IntegrityError:
+            session.rollback()
+            print(f"⏭ Skipping duplicate invoice: {invoice.invoice_form}-{invoice.invoice_series}-{invoice.invoice_number}")
+            continue
+    
+    session.commit()
+    rprint(f"[green]✓ Successfully merged {len(merged):,} new invoices[/green]")
     return merged
 
 def get_invoices(session, start_date=None, end_date=None, tax_code=None):
     """Get invoices with optional date range and tax code filters"""
-    query = session.query(Invoice).join(Invoice.provider)
-    
+    query = session.query(Invoice).join(Invoice.seller)  # Use the relationship
+
     if start_date:
         query = query.filter(Invoice.invoice_timestamp >= start_date)
     if end_date:
         query = query.filter(Invoice.invoice_timestamp <= end_date)
     if tax_code:
-        query = query.filter(Provider.tax_code == tax_code)
-        
+        query = query.filter(Seller.tax_code == tax_code)
+
     return query.order_by(Invoice.invoice_timestamp.desc()).all()
 
 def get_invoice_stats(session):
@@ -232,17 +242,35 @@ def get_invoice_stats(session):
         func.max(Invoice.invoice_timestamp)
     ).first()
     
-    # Get tax providers and their occurrence
+    # Get tax providers and their occurrence with download stats
     tax_provider_stats = session.query(
         TaxProvider.name,
-        func.count(Invoice.id)
-    ).join(Invoice, TaxProvider.id == Invoice.tax_provider_id).group_by(TaxProvider.name).all()
+        func.count(Invoice.id),
+        func.sum(case((Invoice.is_downloaded == 1, 1), else_=0)).label('downloaded_count')
+    ).join(Invoice, TaxProvider.id == Invoice.tax_provider_id)\
+     .group_by(TaxProvider.name).all()
+    
+    # Get overall download stats
+    download_stats = session.query(
+        func.count(Invoice.id),
+        func.sum(case((Invoice.is_downloaded == 1, 1), else_=0))
+    ).first()
     
     return {
         'total_invoices': total,
+        'total_downloaded': download_stats[1] or 0,
+        'download_percentage': round((download_stats[1] or 0) / total * 100, 2) if total > 0 else 0,
         'date_from': date_range[0] if date_range[0] else None,
         'date_to': date_range[1] if date_range[1] else None,
-        'tax_provider_stats': tax_provider_stats
+        'tax_provider_stats': [
+            {
+                'name': name,
+                'total': count,
+                'downloaded': downloaded or 0,
+                'percentage': round((downloaded or 0) / count * 100, 2) if count > 0 else 0
+            }
+            for name, count, downloaded in tax_provider_stats
+        ]
     }
 
 @app.command()
@@ -257,11 +285,11 @@ def fetch():
         merged_tax_providers = merge_tax_providers(session, new_tax_providers)
         rprint(f"[green]✓[/green] Added {len(merged_tax_providers)} tax providers")
         
-        # Process providers
-        new_providers = load_providers_from_json()
-        merged, updated = merge_providers(session, new_providers)
-        rprint(f"[green]✓[/green] Added {len(merged)} new providers")
-        rprint(f"[blue]↻[/blue] Updated {len(updated)} providers")
+        # Process sellers
+        new_sellers = load_sellers_from_json()
+        merged, updated = merge_sellers(session, new_sellers)
+        rprint(f"[green]✓[/green] Added {len(merged)} new sellers")
+        rprint(f"[blue]↻[/blue] Updated {len(updated)} sellers")
         
         # Process invoices
         new_invoices = load_invoices_from_json(session)
@@ -303,6 +331,7 @@ def stats(
             f"""[bold blue]Invoice Database Statistics[/bold blue]
             
 Total Invoices: {stats['total_invoices']}
+Downloaded: {stats['total_downloaded']} ({stats['download_percentage']}%)
 Date Range: {stats['date_from']} to {stats['date_to']}
             """,
             title="📊 Statistics"
@@ -312,15 +341,17 @@ Date Range: {stats['date_from']} to {stats['date_to']}
         table = Table(title="Tax Providers and Invoice Counts")
         table.add_column("Tax Provider")
         table.add_column("Status")
-        table.add_column("Invoice Count")
+        table.add_column("Total")
+        table.add_column("Downloaded")
         table.add_column("Note")
         
-        for tax_provider, count in tax_provider_invoices:
-            provider = session.query(TaxProvider).filter_by(name=tax_provider).first()
+        for provider_stat in stats['tax_provider_stats']:
+            provider = session.query(TaxProvider).filter_by(name=provider_stat['name']).first()
             table.add_row(
-                tax_provider,
+                provider_stat['name'],
                 f"[{'green' if provider.status == 'RESOLVED' else 'yellow'}]{provider.status}[/]",
-                str(count),
+                str(provider_stat['total']),
+                f"{provider_stat['downloaded']} ({provider_stat['percentage']}%)",
                 provider.note or "-"
             )
         
@@ -328,7 +359,7 @@ Date Range: {stats['date_from']} to {stats['date_to']}
 
 @app.command()
 def query(
-    tax_code: str = typer.Option(None, "--tax-code", "-t", help="Filter by provider tax code"),
+    tax_code: str = typer.Option(None, "--tax-code", "-t", help="Filter by seller tax code"),
     days: int = typer.Option(30, "--days", "-d", help="Number of days to look back"),
     output: str = typer.Option(None, "--output", "-o", help="Output to JSON file")
 ):
@@ -345,7 +376,7 @@ def query(
         table.add_column("Date")
         table.add_column("Series")
         table.add_column("Number")
-        table.add_column("Provider")
+        table.add_column("Seller")
         table.add_column("Tax Provider")
         
         for inv in invoices:
@@ -353,7 +384,7 @@ def query(
                 inv.invoice_timestamp.strftime("%Y-%m-%d"),
                 inv.invoice_series,
                 str(inv.invoice_number),
-                inv.provider.name,
+                inv.seller.name,
                 inv.tax_provider.name if inv.tax_provider else "-"
             )
         
@@ -364,7 +395,7 @@ def query(
                 'date': inv.invoice_timestamp.isoformat(),
                 'series': inv.invoice_series,
                 'number': inv.invoice_number,
-                'provider': inv.provider.name,
+                'seller': inv.seller.name,
                 'tax_provider': inv.tax_provider.name if inv.tax_provider else None
             } for inv in invoices]
             
