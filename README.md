@@ -1,6 +1,22 @@
 # Playwright Bot
 
-...existing content...
+## Feature Status
+
+| Feature               | Code | Test | Docs |
+| --------------------- | ---- | ---- | ---- |
+| Database Operations   | 🚧    | 🚧    | 🚧    |
+| SoftDreams Downloader | ✅    | 🚧    | 🚧    |
+| Viettel Downloader    | ✅    | 🚧    | 🚧    |
+| MISA Downloader       | ✅    | 🚧    | 🚧    |
+| VNPT Downloader       | 🚧    | 🚧    | 🚧    |
+| FPT Downloader        | 🚧    | 🚧    | 🚧    |
+| BKAV Downloader       | 🚧    | 🚧    | 🚧    |
+| DNA Downloader        | 🚧    | 🚧    | 🚧    |
+| ThaiSon Downloader    | 🚧    | 🚧    | 🚧    |
+| BuuChinhVT Downloader | 🚧    | 🚧    | 🚧    |
+| Wintech Downloader    | 🚧    | 🚧    | 🚧    |
+| Visnam Downloader     | 🚧    | 🚧    | 🚧    |
+| CLI Interface         | 🚧    | 🚧    | 🚧    |
 
 ## Usage
 
@@ -53,4 +69,5 @@ The `download_invoice.py` script allows downloading invoices based on date range
    python3 download_invoice.py --start-date 01/02/2025 --end-date 28/02/2025 --output invoices
    ```
 
-...existing content...
+
+
