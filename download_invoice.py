@@ -13,6 +13,7 @@ import requests
 from playwright.sync_api import sync_playwright
 import time
 from helpers import download_by_url  # Import the working function from helpers.py
+import zipfile
 
 class InvoiceDownloader:
     """Base class for invoice downloaders"""
@@ -97,7 +98,60 @@ class MISADownloader(InvoiceDownloader):
 
 class SoftDreamsDownloader(InvoiceDownloader):
     def download(self, invoice: Invoice, output_path: Path) -> bool:
-        return False
+        """Download invoice using SoftDreams portal with Playwright"""
+        url = f"https://{invoice.seller.tax_code}hd.easyinvoice.com.vn"  
+        
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=False)
+            context = browser.new_context(accept_downloads=True)
+            page = context.new_page()
+            try:
+                print(f"🌐 Accessing URL: {url}")
+                page.goto(url, wait_until="networkidle")  # Added wait_until
+                print(f"🔍 Filling form for invoice: {invoice.tracking_code}")
+                page.fill("#iFkey", invoice.tracking_code)
+                
+                # Focus on CAPTCHA field
+                page.focus("#Capcha")
+                print(f"⚠️ Please complete the CAPTCHA and click submit manually...")
+                
+                # Wait for download button to appear
+                button_selector = "button[name='downloadPdfAndFileAttach']"
+                print("⏳ Waiting for download button to appear...")
+                page.wait_for_selector(button_selector, state="visible", timeout=60000)
+                
+                # Handle download
+                print("📥 Starting download...")
+                with page.expect_download() as download_info:
+                    page.click(button_selector)
+                
+                # Process downloaded file
+                temp_zip = output_path.parent / "temp_invoice.zip"
+                download_info.value.save_as(temp_zip)
+                
+                if not temp_zip.exists() or temp_zip.stat().st_size == 0:
+                    raise Exception("Download failed: Invalid or empty zip file")
+                    
+                # Extract PDF
+                try:
+                    with zipfile.ZipFile(temp_zip) as zip_ref:
+                        pdf_files = [f for f in zip_ref.namelist() if f.lower().endswith('.pdf')]
+                        if not pdf_files:
+                            raise Exception("No PDF file found in zip")
+                        with zip_ref.open(pdf_files[0]) as pdf_file:
+                            output_path.write_bytes(pdf_file.read())
+                    print(f"✅ PDF extracted: {output_path} ({output_path.stat().st_size} bytes)")
+                    return True
+                finally:
+                    if temp_zip.exists():
+                        temp_zip.unlink()
+                        print("🧹 Cleaned up temporary zip file")
+                        
+            except Exception as e:
+                print(f"❌ Error downloading invoice: {e}")
+                return False
+            finally:
+                browser.close()
 
 class DNADownloader(InvoiceDownloader):
     def download(self, invoice: Invoice, output_path: Path) -> bool:

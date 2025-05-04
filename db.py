@@ -170,9 +170,8 @@ def load_invoices_from_json(session):
         # Extract tracking_code from ttkhac
         tracking_code = None
         for field in raw.get('ttkhac', []):
-            if field.get('ttruong') == "Mã số bí mật":
+            if field.get('ttruong') in ["Mã số bí mật", "Fkey"]:
                 tracking_code = field.get('dlieu')
-                break
 
         # Check if invoice exists using SQL query
         existing_invoice = session.query(Invoice).filter(
@@ -182,7 +181,13 @@ def load_invoices_from_json(session):
         ).first()
 
         if existing_invoice:
-            print(f"⏭ Skipping existing invoice: {raw.get('khmshdon')}-{raw.get('khhdon')}-{raw.get('shdon')}")
+            # Update tracking_code if it is missing and a new tracking_code is available
+            if not existing_invoice.tracking_code and tracking_code:
+                existing_invoice.tracking_code = tracking_code
+                session.commit()
+                print(f"🔄 Updated tracking_code for invoice: {raw.get('khmshdon')}-{raw.get('khhdon')}-{raw.get('shdon')}")
+            else:
+                print(f"⏭ Skipping existing invoice: {raw.get('khmshdon')}-{raw.get('khhdon')}-{raw.get('shdon')}")
             continue
 
         invoice = Invoice(
