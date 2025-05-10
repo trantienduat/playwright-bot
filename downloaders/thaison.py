@@ -11,7 +11,7 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     datefmt='%H:%M:%S'
 )
-logger = logging.getLogger('viettel')
+logger = logging.getLogger('thaison')
 
 class ThaiSonDownloader(IInvoiceDownloader):
     def download(self, invoice: Invoice, output_path: Path) -> bool:

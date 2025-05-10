@@ -13,6 +13,7 @@ from downloaders.softdream import SoftDreamsDownloader
 from downloaders.misa import MISADownloader
 from downloaders.buuchinhvt import BuuChinhVTDownloader
 from downloaders.thaison import ThaiSonDownloader
+from downloaders.vina import VinaDownloader
 import time
 import logging
 
@@ -44,10 +45,6 @@ logger = logging.getLogger('invoice_downloader')
 #     def download(self, invoice: Invoice, output_path: Path) -> bool:
 #         return False
 
-# class ThaiSonDownloader(InvoiceDownloader):
-#     def download(self, invoice: Invoice, output_path: Path) -> bool:
-#         return False
-
 # class VisnamDownloader(InvoiceDownloader):
 #     def download(self, invoice: Invoice, output_path: Path) -> bool:
 #         return False
@@ -65,6 +62,7 @@ def get_downloader(provider_name: str) -> IInvoiceDownloader:
         # 'wintech': WintechDownloader(), 
         'thaison': ThaiSonDownloader(),
         'buuchinhvt': BuuChinhVTDownloader(),
+        'vina': VinaDownloader(),
         # 'visnam': VisnamDownloader(),
         'fpt': FPTDownloader()
     }

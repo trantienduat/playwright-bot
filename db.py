@@ -168,14 +168,27 @@ def load_invoices_from_json(session, json_path):
 
         # Extract tracking_code for various providers
         tracking_code = None
-        for field in raw.get('ttkhac', []):
-            if field.get('ttruong') in ["Mã số bí mật", "Fkey"]:
-                tracking_code = field.get('dlieu')
-                
-            # Getting tracking_code for Thaison
-            if field.get('ttruong') == "Mã TC" and tax_provider_name == "thaison":
-                tracking_code = field.get('dlieu')
-                break
+        
+        ttkhac = raw.get('ttkhac', [])
+        if ttkhac:
+            for field in raw.get('ttkhac', []):
+                if field.get('ttruong') in ["Mã số bí mật", "Fkey"]:
+                    tracking_code = field.get('dlieu')
+                    
+                # Getting tracking_code for Thaison
+                if field.get('ttruong') == "Mã TC" and tax_provider_name == "thaison":
+                    tracking_code = field.get('dlieu')
+                    break
+            
+        # Getting tracking_code for Vina
+        cttkhac = raw.get('cttkhac', [])
+        if cttkhac:
+            for field in cttkhac:
+                if field.get('ttruong') == "Matracuu" and tax_provider_name == "vina":
+                    tracking_code = field.get('dlieu')
+                    break
+            
+        # Getting tracking_code for buuchinhvt
         if raw.get('mhdon') and tax_provider_name == "buuchinhvt":
             tracking_code = raw.get('mhdon')
 

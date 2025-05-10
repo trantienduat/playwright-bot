@@ -29,7 +29,7 @@ tax_providers:
     note: null
   thaison:
     search_url: https://einvoice.vn/tra-cuu
-    status: TBD
+    status: RESOLVED
     note: null
   buuchinhvt:
     search_url: https://portaltool-miennam.vnpt-invoice.com.vn/
@@ -38,6 +38,10 @@ tax_providers:
   visnam:
     search_url: https://hddt.vin-hoadon.com/
     status: TBD
+    note: null
+  vina:
+    search_url: https://tracuuhd.smartsign.com.vn/
+    status: RESOLVED
     note: null
   fpt:
     search_url: https://tracuuhoadon.fpt.com.vn/
