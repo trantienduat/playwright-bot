@@ -26,7 +26,7 @@ class Invoice(Base):
     id = Column(Integer, primary_key=True)
     invoice_form = Column(String(50))
     invoice_series = Column(String(50))
-    invoice_number = Column(Integer)
+    invoice_number = Column(String(50))
     invoice_timestamp = Column(DateTime(timezone=True))
     tracking_code = Column(String(255))
     seller_id = Column(Integer, ForeignKey('sellers.id'))  # Renamed from provider_id

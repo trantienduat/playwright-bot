@@ -59,7 +59,14 @@ The `db.py` script provides a CLI for managing the invoice database. Below are s
 
 1. **Fetch Data**: Load data from JSON files into the database.
    ```bash
-   python3 db.py fetch
+   python3 db.py fetch --input <JSON_FILE>
+   ```
+
+   - `--input`: Path to the input JSON file containing invoice data.
+
+   Example:
+   ```bash
+   python3 db.py fetch --input data/invoices.json
    ```
 
 2. **View Statistics**: Display summary statistics of the invoice database, including tax providers and their invoices in a date range.

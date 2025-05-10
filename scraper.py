@@ -219,7 +219,7 @@ if __name__ == "__main__":
         - Dates must be in DD/MM/YYYY format
         - Start date must be before or equal to end date
         - Requires manual CAPTCHA entry during authentication
-        - Results are saved to ./data/invoices.json
+        - Results are saved to ./data/<Month>_invoices.json
     """
     parser = argparse.ArgumentParser(
         description='Fetch electronic invoices from the Vietnamese tax portal',
@@ -245,7 +245,13 @@ if __name__ == "__main__":
                 if len(invoices) > 0:
                     output_dir = Path('data')
                     output_dir.mkdir(parents=True, exist_ok=True)
-                    output_file = output_dir / 'invoices.json'
+                    
+                    # Extract month name and year from start date
+                    start_date_obj = datetime.strptime(args.start_date, "%d/%m/%Y")
+                    month_name = start_date_obj.strftime("%b")  # Short month name (e.g., Jan, Feb)
+                    year_number = start_date_obj.strftime("%Y")  # Year (e.g., 2025)
+                    output_file = output_dir / f'{year_number}_{month_name}_invoices.json'
+                    
                     with open(output_file, 'w', encoding='utf-8') as f:
                         json.dump(invoices, f, ensure_ascii=False, indent=2)
                     print(f"✅ Invoices written to {output_file}")

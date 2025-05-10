@@ -192,29 +192,101 @@ class ThaiSonDownloader(InvoiceDownloader):
 
 class BuuChinhVTDownloader(InvoiceDownloader):
     def download(self, invoice: Invoice, output_path: Path) -> bool:
-        return False
+        logger.info(f"🤖 Starting Viettel downloader for invoice {invoice.invoice_series}-{invoice.invoice_number}")
+        url = f"https://{invoice.seller.tax_code}-tt78.vnpt-invoice.com.vn/HomeNoLogin/SearchByFkey"
+        download_dir = output_path.parent
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=False)
+            context = browser.new_context(accept_downloads=True)
+            page = context.new_page()
+            try:
+                page.goto(url)
+                page.wait_for_selector("#strFkey")
+                page.fill("#strFkey", invoice.tracking_code)
+                
+
+                logger.info("⚠️ Waiting for manual CAPTCHA completion...")
+                page.focus(".captcha_input.form-control")
+                
+                download_button = "[class='icon-download-alt']"
+                page.wait_for_selector(download_button)
+                # Extract the href attribute of the download button
+                # logger.info("🔄 Downloading file...")
+                print("🔄 Downloading file...")
+                with page.expect_download() as download_info:
+                    page.click(download_button)
+                download = download_info.value
+                
+                temp_file_path = download_dir / "temp_invoice.pdf"
+                download.save_as(str(temp_file_path))
+                logger.info(f"✅ Downloaded temporary file: {temp_file_path}")
+
+                month_abbr = invoice.invoice_timestamp.strftime("%b") if invoice.invoice_timestamp else "Unknown"
+                new_filename = f"{month_abbr}_{invoice.invoice_series}_{invoice.invoice_number}.pdf"
+                new_file_path = download_dir / new_filename
+                os.rename(temp_file_path, new_file_path)
+                logger.info(f"📁 Renamed to: {new_file_path}")
+
+                return True
+            except Exception as e:
+                logger.error(f"❌ Download failed: {str(e)}")
+                return False
+            finally:
+                browser.close()
 
 class VisnamDownloader(InvoiceDownloader):
     def download(self, invoice: Invoice, output_path: Path) -> bool:
         return False
 
 class FPTDownloader(InvoiceDownloader):
+
     def download(self, invoice: Invoice, output_path: Path) -> bool:
-        return False
+        if not invoice.tracking_code:
+            logger.error("❌ Missing tracking code")
+            return False
+        logger.info(f"🤖 Starting FPT downloader for invoice {invoice.invoice_series}-{invoice.invoice_number}")
+        try:
+            download_dir = output_path.parent
+            # Construct the URL
+            url = f"https://hoadondientu.kimtingroup.com/api/invoice-mailpdf?sec={invoice.tracking_code}"
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                context = browser.new_context(accept_downloads=True)
+                page = context.new_page()
+                try:
+                    with page.expect_download() as download_info:
+                        page.evaluate(f"window.location.href = '{url}'")  # Trigger download by setting window location
+                    download = download_info.value
+                    
+                    # Format the file name with the month abbreviation
+                    month_name = invoice.invoice_timestamp.strftime("%b") if invoice.invoice_timestamp else "Unknown"
+                    file_name = f"{month_name}_{invoice.invoice_series}_{invoice.invoice_number}.pdf"
+                    file_path = download_dir / file_name
+                    download.save_as(str(file_path))
+                    print(f"✅ Downloaded and saved as: {file_path}")
+                except Exception as e:
+                    print(f"❌ Error downloading {url}: {e}")
+                finally:
+                    browser.close()
+
+        except FileNotFoundError:
+            print(f"❌ Error: File not found at {file_path}")
+            print("Please ensure the file exists in the data directory")
+        return True
 
 def get_downloader(provider_name: str) -> InvoiceDownloader:
     """Factory method to get the appropriate downloader"""
     downloaders = {
-        'softdreams': SoftDreamsDownloader(),
-        'dna': DNADownloader(),
-        'misa': MISADownloader(),
-        'invoice': InvoiceDownloader(),
-        'viettel': ViettelDownloader(),
-        'bkav': BKAVDownloader(),
-        'wintech': WintechDownloader(), 
-        'thaison': ThaiSonDownloader(),
-        'buuchinhvt': BuuChinhVTDownloader(),
-        'visnam': VisnamDownloader(),
+        # 'softdreams': SoftDreamsDownloader(),
+        # 'dna': DNADownloader(),
+        # 'misa': MISADownloader(),
+        # 'viettel': ViettelDownloader(),
+        # 'bkav': BKAVDownloader(),
+        # 'wintech': WintechDownloader(), 
+        # 'thaison': ThaiSonDownloader(),
+        # 'buuchinhvt': BuuChinhVTDownloader(),
+        # 'visnam': VisnamDownloader(),
         'fpt': FPTDownloader()
     }
     if isinstance(provider_name, str):
