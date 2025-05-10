@@ -12,6 +12,7 @@ from downloaders.invoice_downloader import IInvoiceDownloader
 from downloaders.softdream import SoftDreamsDownloader
 from downloaders.misa import MISADownloader
 from downloaders.buuchinhvt import BuuChinhVTDownloader
+from downloaders.thaison import ThaiSonDownloader
 import time
 import logging
 
@@ -62,7 +63,7 @@ def get_downloader(provider_name: str) -> IInvoiceDownloader:
         'viettel': ViettelDownloader(),
         # 'bkav': BKAVDownloader(),
         # 'wintech': WintechDownloader(), 
-        # 'thaison': ThaiSonDownloader(),
+        'thaison': ThaiSonDownloader(),
         'buuchinhvt': BuuChinhVTDownloader(),
         # 'visnam': VisnamDownloader(),
         'fpt': FPTDownloader()
