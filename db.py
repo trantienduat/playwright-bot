@@ -265,6 +265,13 @@ def get_invoice_stats(session):
         func.sum(case((Invoice.is_downloaded == 1, 1), else_=0))
     ).first()
     
+    # Get stats for invoices with no tax provider
+    no_tax_provider_count = session.query(Invoice).filter(Invoice.tax_provider_id.is_(None)).count()
+    no_tax_provider_downloaded = session.query(func.count(Invoice.id)).filter(
+        Invoice.tax_provider_id.is_(None),
+        Invoice.is_downloaded == 1
+    ).scalar()
+    
     return {
         'total_invoices': total,
         'total_downloaded': download_stats[1] or 0,
@@ -279,7 +286,12 @@ def get_invoice_stats(session):
                 'percentage': round((downloaded or 0) / count * 100, 2) if count > 0 else 0
             }
             for name, count, downloaded in tax_provider_stats
-        ]
+        ],
+        'no_tax_provider': {
+            'total': no_tax_provider_count,
+            'downloaded': no_tax_provider_downloaded or 0,
+            'percentage': round((no_tax_provider_downloaded or 0) / no_tax_provider_count * 100, 2) if no_tax_provider_count > 0 else 0
+        }
     }
     
 def check_invoice_in_KIMTIN_list(series, number, KINTIM_list_path):
@@ -389,7 +401,6 @@ def stats(
     start_date: str = typer.Option(None, "--start-date", "-s", help="Start date (DD/MM/YYYY)"),
     end_date: str = typer.Option(None, "--end-date", "-e", help="End date (DD/MM/YYYY)")
 ):
-    
     """Show invoice database statistics, including tax providers and their invoices in the date range"""
     engine = create_engine('sqlite:///vantoi.db')
     
@@ -445,6 +456,16 @@ Date Range: {stats['date_from']} to {stats['date_to']}
         
         console.print(table)
         
+        # Display stats for invoices with no tax provider
+        no_tax_provider = stats['no_tax_provider']
+        console.print(Panel.fit(
+            f"""[bold red]Invoices with No Tax Provider[/bold red]
+            
+Total: {no_tax_provider['total']}
+Downloaded: {no_tax_provider['downloaded']} ({no_tax_provider['percentage']}%)
+            """,
+            title="🚨 No Tax Provider Stats"
+        ))
 
 @app.command()
 def query(

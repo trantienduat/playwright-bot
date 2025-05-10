@@ -3,8 +3,7 @@ from .invoice_downloader import IInvoiceDownloader
 from models import Invoice
 from pathlib import Path
 import logging
-import os
-from datetime import datetime
+import zipfile
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
