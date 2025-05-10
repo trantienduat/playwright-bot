@@ -9,3 +9,8 @@ echo ">>>>>>>>>>>>>> FETCHING INVOICES FOR March 2025 <<<<<<<<<<<<<<<"
 python3 db.py fetch --input ./data/2025_Mar_invoices.json;
 echo ""
 echo ""
+
+echo ">>>>>>>>>>>>>> FETCHING INVOICES FOR March 2025 <<<<<<<<<<<<<<<"
+python3 db.py fetch --input ./data/2025_Apr_invoices.json;
+echo ""
+echo ""

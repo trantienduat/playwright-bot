@@ -58,7 +58,7 @@ def get_downloader(provider_name: str) -> IInvoiceDownloader:
     downloaders = {
         'softdreams': SoftDreamsDownloader(),
         # 'dna': DNADownloader(),
-        'misa': MISADownloader(),
+        # 'misa': MISADownloader(),
         'viettel': ViettelDownloader(),
         # 'bkav': BKAVDownloader(),
         # 'wintech': WintechDownloader(), 
@@ -99,7 +99,7 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
         for invoice in invoices:
             logger.debug(f"Processing invoice: {invoice.invoice_series}-{invoice.invoice_number}")
             month_abbr = invoice.invoice_timestamp.strftime("%b") if invoice.invoice_timestamp else "Unknown"
-            filename = f"{month_abbr}_{invoice.invoice_series}_{invoice.invoice_number}.pdf"
+            filename = f"{month_abbr}_{invoice.invoice_form}_{invoice.invoice_series}_{invoice.invoice_number}.pdf"
             filepath = output_path / filename
             
             if filepath.exists():

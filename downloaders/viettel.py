@@ -17,7 +17,6 @@ class ViettelDownloader(IInvoiceDownloader):
     def download(self, invoice: Invoice, output_path: Path) -> bool:
         logger.info(f"🤖 Starting Viettel downloader for invoice {invoice.invoice_series}-{invoice.invoice_number}")
         url = "https://vinvoice.viettel.vn/utilities/invoice-search"
-        download_dir = output_path.parent
 
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=False)
@@ -49,15 +48,12 @@ class ViettelDownloader(IInvoiceDownloader):
                     page.click(download_button)
                 download = download_info.value
 
-                temp_file_path = download_dir / "temp_invoice.pdf"
+                temp_file_path = output_path.parent / "temp_invoice.pdf"
                 download.save_as(str(temp_file_path))
                 logger.info(f"✅ Downloaded temporary file: {temp_file_path}")
 
-                month_abbr = invoice.invoice_timestamp.strftime("%b") if invoice.invoice_timestamp else "Unknown"
-                new_filename = f"{month_abbr}_{invoice.invoice_series}_{invoice.invoice_number}.pdf"
-                new_file_path = download_dir / new_filename
-                os.rename(temp_file_path, new_file_path)
-                logger.info(f"📁 Renamed to: {new_file_path}")
+                os.rename(temp_file_path, output_path)
+                logger.info(f"📁 Renamed to: {output_path}")
 
                 return True
             except Exception as e:

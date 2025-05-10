@@ -21,8 +21,8 @@ tax_providers:
     note: null
   bkav:
     search_url: https://tracuu.ehoadon.vn/
-    status: TBD
-    note: null
+    status: BLOCKED
+    note: There is no search code in the json file. Need to be extracted from the email.
   wintech:
     search_url: https://tracuu.wininvoice.vn/
     status: TBD
