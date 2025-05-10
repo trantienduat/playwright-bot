@@ -171,7 +171,7 @@ def load_invoices_from_json(session, json_path):
         for field in raw.get('ttkhac', []):
             if field.get('ttruong') in ["Mã số bí mật", "Fkey"]:
                 tracking_code = field.get('dlieu')
-        if raw.get('mhdon'):
+        if raw.get('mhdon') and tax_provider_name == "buuchinhvt":
             tracking_code = raw.get('mhdon')
 
         # Check if invoice exists using SQL query

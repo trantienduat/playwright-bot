@@ -1,7 +1,7 @@
 tax_providers:
   softdreams:
     search_url: https://tracuu.easyinvoice.vn/
-    status: TBD
+    status: RESOLVED
     note: null
   dna:
     search_url: https://hoadondientu.gdt.gov.vn/tra-cuu
@@ -17,7 +17,7 @@ tax_providers:
     note: null
   viettel:
     search_url: https://vinvoice.viettel.vn/utilities/invoice-search
-    status: TBD
+    status: RESOLVED
     note: null
   bkav:
     search_url: https://tracuu.ehoadon.vn/
@@ -33,7 +33,7 @@ tax_providers:
     note: null
   buuchinhvt:
     search_url: https://portaltool-miennam.vnpt-invoice.com.vn/
-    status: TBD
+    status: RESOLVED
     note: null
   visnam:
     search_url: https://hddt.vin-hoadon.com/
@@ -41,5 +41,5 @@ tax_providers:
     note: null
   fpt:
     search_url: https://tracuuhoadon.fpt.com.vn/
-    status: BLOCKED
-    note: not able to find "search code" from xml. reference:https://ketoan247.vn/cach-tra-cuu-hoa-don-goc-cua-ben-ban-tu-file-xml-tren-trang-hoadondientu-gdt-gov-vn-cua-tong-cuc-thue/
+    status: RESOLVED
+    note: not able to find "search code" from xml. reference:https://ketoan247.vn/cach-tra-cuu-hoa-don-goc-cua-ben-ban-tu-file-xml-tren-trang-hoadondientu-gdt-gov-vn-cua-tong-cuc-thue/. Extract data from email and process via KIMTIN_list.txt
