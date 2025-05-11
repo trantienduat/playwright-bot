@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, create_engine, DateTime, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
+from config.profile_manager import profile_manager
 
 Base = declarative_base()
 
@@ -40,5 +41,5 @@ class Invoice(Base):
     )
 
 def init_db():
-    engine = create_engine('sqlite:///vantoi.db')
+    engine = profile_manager.get_engine()
     Base.metadata.create_all(engine)

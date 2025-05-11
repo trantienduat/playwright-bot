@@ -2,11 +2,10 @@
 from playwright.sync_api import sync_playwright
 import json
 import urllib3
-import os
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
 import requests
-from typing import List, Dict
+from config.profile_manager import profile_manager
 import math
 import argparse
 
@@ -67,6 +66,10 @@ class InvoiceScraper:
     def scrape_gorverment(self):
         """Navigate and authenticate, return token and cookies"""
         try:
+            # Get credentials from active profile
+            username, password = profile_manager.get_hoadondientu_credentials()
+            print(f"🔑 Using credentials for profile: {profile_manager.active_profile}")
+            
             # Navigate to the electronic invoice lookup homepage
             self.page.goto("https://hoadondientu.gdt.gov.vn/")
             
@@ -76,8 +79,8 @@ class InvoiceScraper:
             
             # Click login and fill credentials
             self.page.click('div.ant-col.home-header-menu-item >> text=Đăng nhập')
-            self.page.fill('input#username', '0313823273')
-            self.page.fill('input#password', 'Vantoi&kt05')
+            self.page.fill('input#username', username)
+            self.page.fill('input#password', password)
             self.page.focus('div.ant-modal input#cvalue')
             
             # Wait for manual captcha entry and successful authentication
@@ -244,6 +247,10 @@ if __name__ == "__main__":
                 print(f"Total invoices fetched: {len(invoices)}")
                 if len(invoices) > 0:
                     output_dir = Path('data')
+                    profile_dir = profile_manager.active_profile
+                    output_dir = Path(output_dir) / profile_dir
+                    
+                    # create directory if it doesn't exist
                     output_dir.mkdir(parents=True, exist_ok=True)
                     
                     # Extract month name and year from start date

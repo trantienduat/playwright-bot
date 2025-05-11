@@ -14,6 +14,7 @@ from downloaders.misa import MISADownloader
 from downloaders.buuchinhvt import BuuChinhVTDownloader
 from downloaders.thaison import ThaiSonDownloader
 from downloaders.vina import VinaDownloader
+from config.profile_manager import profile_manager
 import time
 import logging
 
@@ -76,10 +77,9 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
     logger.info("🚀 Starting invoice download process")
     logger.info(f"Date range: {start_date} to {end_date}")
     logger.info(f"Output directory: {output_dir}")
+
     
-    engine = create_engine('sqlite:///vantoi.db')
-    
-    with Session(engine) as session:
+    with profile_manager.get_session() as session:
         invoices = get_invoices(session, start_date, end_date)
         logger.info(f"📊 Found {len(invoices)} invoices")
         

@@ -47,3 +47,15 @@ tax_providers:
     search_url: https://tracuuhoadon.fpt.com.vn/
     status: RESOLVED
     note: not able to find "search code" from xml. reference:https://ketoan247.vn/cach-tra-cuu-hoa-don-goc-cua-ben-ban-tu-file-xml-tren-trang-hoadondientu-gdt-gov-vn-cua-tong-cuc-thue/. Extract data from email and process via KIMTIN_list.txt
+profiles:
+  vantoi:
+    db: "vantoi.db"
+    hoadondientu:
+      username: "0313823273"
+      password: "Vantoi&kt05"
+  dym:
+    db: "dym.db"
+    hoadondientu:
+      username: "0313823273"
+      password: "Dym&kt05"
+in-used-profile: "vantoi"
