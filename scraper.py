@@ -76,8 +76,8 @@ class InvoiceScraper:
             
             # Click login and fill credentials
             self.page.click('div.ant-col.home-header-menu-item >> text=Đăng nhập')
-            self.page.fill('input#username', '0313823273')
-            self.page.fill('input#password', 'Vantoi&kt05')
+            self.page.fill('input#username', '0316060982')
+            self.page.fill('input#password', '1Q68nmL$')
             self.page.focus('div.ant-modal input#cvalue')
             
             # Wait for manual captcha entry and successful authentication

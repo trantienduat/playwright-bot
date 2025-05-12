@@ -40,5 +40,5 @@ class Invoice(Base):
     )
 
 def init_db():
-    engine = create_engine('sqlite:///vantoi.db')
+    engine = create_engine('sqlite:///dym_q1.db')
     Base.metadata.create_all(engine)

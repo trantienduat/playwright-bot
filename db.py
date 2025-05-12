@@ -187,6 +187,12 @@ def load_invoices_from_json(session, json_path):
                 if field.get('ttruong') == "Matracuu" and tax_provider_name == "vina":
                     tracking_code = field.get('dlieu')
                     break
+                if field.get('ttruong') == "Fkey" and tax_provider_name == "hilo":
+                    tracking_code = field.get('dlieu')
+                    break
+                if field.get('ttruong') == "TransactionID" and tax_provider_name == "misa":
+                    tracking_code = field.get('dlieu')
+                    break
             
         # Getting tracking_code for buuchinhvt
         if raw.get('mhdon') and tax_provider_name == "buuchinhvt":
@@ -390,7 +396,7 @@ def fetch(
     input_file: str = typer.Option(..., "--input", "-i", help="Path to input JSON file")
 ):
     """Fetch and load all invoice data from JSON file into database"""
-    engine = create_engine('sqlite:///vantoi.db')
+    engine = create_engine('sqlite:///dym_q1.db')
     init_db()
     
     with Session(engine) as session:
@@ -420,7 +426,7 @@ def stats(
     end_date: str = typer.Option(None, "--end-date", "-e", help="End date (DD/MM/YYYY)")
 ):
     """Show invoice database statistics, including tax providers and their invoices in the date range"""
-    engine = create_engine('sqlite:///vantoi.db')
+    engine = create_engine('sqlite:///dym_q1.db')
     
     with Session(engine) as session:
         # Parse date range
@@ -513,7 +519,7 @@ def query(
         python3 db.py query --start-date "01/02/2025" --end-date "28/02/2025" --output "Feb_invoices.csv"
     """
 
-    engine = create_engine('sqlite:///vantoi.db')
+    engine = create_engine('sqlite:///dym_q1.db')
     
     with Session(engine) as session:
         # Parse date range

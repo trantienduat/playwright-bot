@@ -3,3 +3,5 @@ PyYAML
 playwright
 python-dateutil
 typer
+unidecode
+PyPDF2
