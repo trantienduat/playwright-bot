@@ -1,11 +1,11 @@
-from pathlib import Path
 from datetime import datetime
 import argparse
 import json
+import re
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from db import get_invoices
-from models import TaxProvider
+from models import TaxProvider, Seller
 from downloaders.viettel import ViettelDownloader
 from downloaders.fpt import FPTDownloader
 from downloaders.invoice_downloader import IInvoiceDownloader
@@ -13,10 +13,12 @@ from downloaders.softdream import SoftDreamsDownloader
 from downloaders.misa import MISADownloader
 from downloaders.buuchinhvt import BuuChinhVTDownloader
 from downloaders.thaison import ThaiSonDownloader
+from downloaders.hilo import HiloDownloader
 from downloaders.vina import VinaDownloader
-from config.profile_manager import profile_manager
 import time
 import logging
+from unidecode import unidecode
+from config.profile_manager import profile_manager
 
 # Configure logging
 logging.basicConfig(
@@ -50,6 +52,66 @@ logger = logging.getLogger('invoice_downloader')
 #     def download(self, invoice: Invoice, output_path: Path) -> bool:
 #         return False
 
+def construct_file_name(text: str) -> str:
+    """Remove Vietnamese tone marks, normalize a given text, remove specific substrings, and remove all spaces."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+
+    normalized_text = re.sub("và", '', text, flags=re.IGNORECASE)
+
+    # Use unidecode to remove diacritical marks and normalize text
+    normalized_text = unidecode(text)
+
+    normalized_text = normalized_text.replace(' ', '')
+
+    # Replace specific substrings with desired replacements
+    substrings_to_replace = {
+        'CONGTYTNHHTHUONGMAIVANTAINGUYENPHUOC': 'NGUYENPHUOC',
+        'CONGTYTNHHTHUONGMAIMAYVY': 'MAYVY',
+        'CONGTYCPDUOCPHAMPHUCTHIEN': 'PHUCTHIEN',
+        'CONGTYTNHHTHUONGMAIDICHVUTRANGTHIETBIYTEMINHTRI': 'MINHTRI',
+        'CONGTYTNHHFULLERTONHEALTHVIETNAM': 'FULLERTONHEALTHVIETNAM',
+        'CONGTYTNHHGRAB': 'GRAB',
+        'CONGTYTNHHNEMVANTHANH': 'NEMVANTHANH',
+        'CONGTYCOPHANMORINAGANUTRITIONALFOODSVIETNAM': 'MORINAGANUTRITIONALFOODSVIETNAM',
+        'CongTyTNHHThuongMaiDauTuDinhVang': 'DinhVang',
+        'CONGTYCOPHANTHUONGMAIDICHVUDOANKHOAHOC': 'DOANKHOAHOC',
+        'CONGTYTRACHNHIEMHUUHANTHUONGMAIDICHVUTHIETBIYTENGUYENKHOA': 'NGUYENKHOA',
+        'CONGTYTNHHTUVANVBP': 'VBP',
+        'CONGTYTNHHTHIENANNAM': 'THIENANNAM',
+        'CONGTYCOPHANTOPCVVIETNAM': 'TOPCVVIETNAM',
+        'CONGTYTNHHDAUTUVAKINHDOANHBATDONGSANMYCANH': 'MYCANH',
+        'CONGTYTNHHSANXUATTHUONGMAIVADICHVUALOBUYVIETNAM': 'ALOBUYVIETNAM',
+        'CONGTYTNHHSAIGONBOULEVARDCOMPLEX': 'SAIGONBOULEVARDCOMPLEX',
+        'CONGTYTNHHTHIETBIYTETHIENTRI': 'THIENTRI',
+        'CONGTYTNHHMOTTHANHVIENNHATCHIMAI': 'NHATCHIMAI',
+        'CONGTYTNHHKINGSMENVIETNAM': 'KINGSMENVIETNAM',
+        'CONGTYCPDUOCLIEUTRUNGUONG2\\(PHYTOPHARMA\\)': 'DUOCLIEUTRUNGUONG2',
+        'CONGTYTNHHDKSHVIETNAM': 'DKSHVIETNAM',
+        'CONGTYTNHHTHIETBIDUYMINH': 'DUYMINH',
+        'CONGTYTNHHTRANGTHIETBIYTETRANVATRUNG': 'TRANVATRUNG',
+        'CONGTYCOPHANNIPPONPAPERVIETHOAMY': 'NIPPONPAPERVIETHOAMY',
+        'CONGTYTNHHTHUONGMAIVADICHVUCAFAM': 'CAFAM',
+        'CONGTYCOPHANCONGNGHEC+': 'CONGNGHEC',
+        'CONGTYTNHHCOWAYVINA': 'COWAYVINA',
+        'CONGTYTNHHSAIGONBOULEVARDCOMPLEX': 'SAIGONBOULEVARDCOMPLEX',
+        'CONGTYCOPHANDAUTUTHIETBIYTETHIENAN': 'THIENAN',
+        'CONGTYTNHHINSONGTHINH': 'SONGTHINH',
+        'CONGTYTNHHSGSAGAWAVIETNAM': 'SGSAGAWAVIETNAM',
+        'CONGTYCOPHANANHDUONGVIETNAM': 'ANHDUONGVIETNAM',
+        'CONGTYTNHHTHIETBIYTENDENT': 'NDENT',
+        'TrungtamKinhdoanhVNPTthanhphoHoChiMinh-ChinhanhTongcongtyDichvuVienthong': 'VNPT_HCM',
+        'TRUNGTAMKINHDOANHVNPT-HANOI-CHINHANHTONGCONGTYDICHVUVIENTHONG': 'VNPT_HaNoi',
+    }
+
+    for old, new in substrings_to_replace.items():
+        normalized_text = re.sub(old, new, normalized_text, flags=re.IGNORECASE)
+
+    # Remove all spaces
+    normalized_text = normalized_text.replace('.', '')
+
+    # Return the cleaned text
+    return normalized_text.strip()
 
 
 def get_downloader(provider_name: str) -> IInvoiceDownloader:
@@ -57,7 +119,7 @@ def get_downloader(provider_name: str) -> IInvoiceDownloader:
     downloaders = {
         'softdreams': SoftDreamsDownloader(),
         # 'dna': DNADownloader(),
-        # 'misa': MISADownloader(),
+        'misa': MISADownloader(),
         'viettel': ViettelDownloader(),
         # 'bkav': BKAVDownloader(),
         # 'wintech': WintechDownloader(), 
@@ -65,7 +127,8 @@ def get_downloader(provider_name: str) -> IInvoiceDownloader:
         'buuchinhvt': BuuChinhVTDownloader(),
         'vina': VinaDownloader(),
         # 'visnam': VisnamDownloader(),
-        'fpt': FPTDownloader()
+        'fpt': FPTDownloader(),
+        'hilo': HiloDownloader()
     }
     if isinstance(provider_name, str):
         return downloaders.get(provider_name.lower())
@@ -85,15 +148,6 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
         
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
-        
-        index = {
-            'downloaded_at': datetime.now().isoformat(),
-            'filters': {
-                'start_date': start_date.isoformat() if start_date else None,
-                'end_date': end_date.isoformat() if end_date else None,
-            },
-            'invoices': []
-        }
         
         for invoice in invoices:
             logger.debug(f"Processing invoice: {invoice.invoice_series}-{invoice.invoice_number}")
@@ -135,16 +189,7 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
                     logger.info(f"✅ Successfully downloaded: {filename}")
                     invoice.is_downloaded = 1
                     session.commit()
-                    index['invoices'].append({
-                        'filename': filename,
-                        'series': invoice.invoice_series,
-                        'number': invoice.invoice_number,
-                        'timestamp': invoice.invoice_timestamp.isoformat(),
-                        'provider': {
-                            'tax_provider_id': tax_provider_id,
-                            'tax_provider_name': tax_provider_name
-                        }
-                    })
+
                 else:
                     logger.error(f"❌ Failed to download: {filename}")
             except Exception as e:
@@ -153,11 +198,6 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
             logger.debug("Applying rate limit...")
             time.sleep(1)
         
-        index_file = output_path / 'index.json'
-        with open(index_file, 'w', encoding='utf-8') as f:
-            json.dump(index, f, indent=2, ensure_ascii=False)
-        
-        logger.info(f"✅ Created index at {index_file}")
         logger.info(f"📁 Downloads folder: {output_path.absolute()}")
 
 def parse_date(date_string):

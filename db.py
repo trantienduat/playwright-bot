@@ -188,6 +188,14 @@ def load_invoices_from_json(session, json_path):
                 if field.get('ttruong') == "Matracuu" and tax_provider_name == "vina":
                     tracking_code = field.get('dlieu')
                     break
+        
+                if field.get('ttruong') == "Fkey" and tax_provider_name == "hilo":
+                    tracking_code = field.get('dlieu')
+                    break
+                
+                if field.get('ttruong') == "TransactionID" and tax_provider_name == "misa":
+                    tracking_code = field.get('dlieu')
+                    break
             
         # Getting tracking_code for buuchinhvt
         if raw.get('mhdon') and tax_provider_name == "buuchinhvt":
