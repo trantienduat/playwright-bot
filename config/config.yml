@@ -49,13 +49,15 @@ tax_providers:
     note: not able to find "search code" from xml. reference:https://ketoan247.vn/cach-tra-cuu-hoa-don-goc-cua-ben-ban-tu-file-xml-tren-trang-hoadondientu-gdt-gov-vn-cua-tong-cuc-thue/. Extract data from email and process via KIMTIN_list.txt
 profiles:
   vantoi:
-    db: "vantoi.db"
+    db: "data/vantoi/vantoi.db"
     hoadondientu:
       username: "0313823273"
       password: "Vantoi&kt05"
-  dym:
-    db: "dym.db"
+    KIMTIN_list_path: "data/vantoi/KIMTIN_list.txt"
+  dym_q1:
+    db: "data/dym_q1/dym_q1.db"
     hoadondientu:
-      username: "0313823273"
-      password: "Dym&kt05"
+      username: "0316060982"
+      password: "1Q68nmL$"
+# in-used-profile: "dym_q1"
 in-used-profile: "vantoi"
