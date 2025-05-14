@@ -27,23 +27,16 @@ class ThaiSonDownloader(IInvoiceDownloader):
                 page.goto(url)
                 logger.debug("Page loaded successfully")
 
-                logger.info("📝 Filling form fields...")
                 field_selector = "[class='col-md-7 form-control h36 fix-with-content opacity-placeholder MaNhanHoaDon']"
-                logger.info("⏳ Waiting for the input field to be available...")
                 page.wait_for_selector(field_selector, state="visible", timeout=10000)
                 page.fill(field_selector, invoice.tracking_code)
                 
-
-                logger.info("⚠️ CAPTCHA field detected. Focusing cursor on the CAPTCHA input field...")
                 page.focus("#CaptchaInputText")
                 
                 download_button_selector = "a.btn-icon-fix[href*='/tra-cuu/tai-hoa-don-dien-tu?format=pdf']"
-                logger.info("⏳ Waiting for the download button to be available...")
                 page.wait_for_selector(download_button_selector, state="visible", timeout=10000)
-                logger.info("📄 Download button detected. Clicking the button...")
                 
                 # Handle download
-                logger.info("📥 Starting download...")
                 with page.expect_download() as download_info:
                     page.click(download_button_selector)
                 download = download_info.value
@@ -57,3 +50,9 @@ class ThaiSonDownloader(IInvoiceDownloader):
                 return False
             finally:
                 browser.close()
+                
+    def download_invoice(self, invoice: Invoice, output_path: Path) -> bool:
+        """
+        Download invoice with validation and retry logic
+        """
+        return self.download_with_validation(invoice, output_path)

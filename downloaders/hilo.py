@@ -9,15 +9,15 @@ logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
     datefmt='%H:%M:%S'
 )
-logger = logging.getLogger('misa')
+logger = logging.getLogger('hilo_downloader')
 
-class MISADownloader(IInvoiceDownloader):
+class HiloDownloader(IInvoiceDownloader):
     def download(self, invoice: Invoice, output_path: Path) -> bool:
-        """Download invoice using MISA's URL"""
-        url = f"https://www.meinvoice.vn/tra-cuu/DownloadHandler.ashx?Type=pdf&Viewer=1&Code={invoice.tracking_code}"
-        logger.info(f"🔗 MISA Downloader: {url}")
+        """Download invoice using HILO's URL"""
+        url = f"https://vn.einvoice.grab.com/Invoice/DowloadPdf?Fkey={invoice.tracking_code}"
+        logger.info(f"🔗 HILO Downloader: {url}")
         return download_by_url(url, output_path.parent, output_path.name)
-
+    
     def download_invoice(self, invoice: Invoice, output_path: Path) -> bool:
         """
         Download invoice with validation and retry logic

@@ -1,11 +1,12 @@
-from pathlib import Path
 from datetime import datetime
 import argparse
 import json
+import re
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from db import get_invoices
-from models import TaxProvider
+from models import TaxProvider, Seller
 from downloaders.viettel import ViettelDownloader
 from downloaders.fpt import FPTDownloader
 from downloaders.invoice_downloader import IInvoiceDownloader
@@ -13,9 +14,12 @@ from downloaders.softdream import SoftDreamsDownloader
 from downloaders.misa import MISADownloader
 from downloaders.buuchinhvt import BuuChinhVTDownloader
 from downloaders.thaison import ThaiSonDownloader
+from downloaders.hilo import HiloDownloader
 from downloaders.vina import VinaDownloader
 import time
 import logging
+from unidecode import unidecode
+from config.profile_manager import profile_manager
 
 # Configure logging
 logging.basicConfig(
@@ -49,6 +53,20 @@ logger = logging.getLogger('invoice_downloader')
 #     def download(self, invoice: Invoice, output_path: Path) -> bool:
 #         return False
 
+def construct_file_name(text: str) -> str:
+    """Remove Vietnamese tone marks, normalize a given text and replace with short name."""
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
+
+    # Get seller_short_name mappings from active profile
+    seller_mappings = profile_manager.get_active_profile().get('seller_short_name', {})
+    
+    # First try exact match in the mappings
+    if text in seller_mappings:
+        return seller_mappings[text]
+    return None
+    
+
 
 
 def get_downloader(provider_name: str) -> IInvoiceDownloader:
@@ -56,7 +74,7 @@ def get_downloader(provider_name: str) -> IInvoiceDownloader:
     downloaders = {
         'softdreams': SoftDreamsDownloader(),
         # 'dna': DNADownloader(),
-        # 'misa': MISADownloader(),
+        'misa': MISADownloader(),
         'viettel': ViettelDownloader(),
         # 'bkav': BKAVDownloader(),
         # 'wintech': WintechDownloader(), 
@@ -64,7 +82,8 @@ def get_downloader(provider_name: str) -> IInvoiceDownloader:
         'buuchinhvt': BuuChinhVTDownloader(),
         'vina': VinaDownloader(),
         # 'visnam': VisnamDownloader(),
-        'fpt': FPTDownloader()
+        'fpt': FPTDownloader(),
+        'hilo': HiloDownloader()
     }
     if isinstance(provider_name, str):
         return downloaders.get(provider_name.lower())
@@ -76,29 +95,26 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
     logger.info("🚀 Starting invoice download process")
     logger.info(f"Date range: {start_date} to {end_date}")
     logger.info(f"Output directory: {output_dir}")
+
     
-    engine = create_engine('sqlite:///vantoi.db')
-    
-    with Session(engine) as session:
+    with profile_manager.get_session() as session:
         invoices = get_invoices(session, start_date, end_date)
         logger.info(f"📊 Found {len(invoices)} invoices")
         
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
-        index = {
-            'downloaded_at': datetime.now().isoformat(),
-            'filters': {
-                'start_date': start_date.isoformat() if start_date else None,
-                'end_date': end_date.isoformat() if end_date else None,
-            },
-            'invoices': []
-        }
-        
         for invoice in invoices:
             logger.debug(f"Processing invoice: {invoice.invoice_series}-{invoice.invoice_number}")
-            month_abbr = invoice.invoice_timestamp.strftime("%b") if invoice.invoice_timestamp else "Unknown"
-            filename = f"{month_abbr}_{invoice.invoice_form}_{invoice.invoice_series}_{invoice.invoice_number}.pdf"
+            seller = session.query(Seller).filter_by(id=invoice.seller_id).first()
+            seller_name = seller.name if seller else "Unknown"
+            filename = construct_file_name(seller_name)
+            
+            if filename is None:
+                logger.error(f"❌ MISSING short name for {seller_name}. Skipping invoice.")
+                continue
+            filename = f"{filename}_{invoice.invoice_number}.pdf"
+            
             filepath = output_path / filename
             
             if filepath.exists():
@@ -106,6 +122,10 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
                     invoice.is_downloaded = 1
                     session.commit()
                 logger.info(f"⏭ Skipping existing {filename}")
+                continue
+            
+            if not invoice.tracking_code:
+                logger.error(f"❌ Missing tracking code for {filename}")
                 continue
             
             tax_provider_id = invoice.tax_provider_id
@@ -129,22 +149,13 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
                 continue
             
             try:
-                success = downloader.download(invoice, filepath)
+                success = downloader.download_invoice(invoice, filepath)
                 print()
                 if success:
                     logger.info(f"✅ Successfully downloaded: {filename}")
                     invoice.is_downloaded = 1
                     session.commit()
-                    index['invoices'].append({
-                        'filename': filename,
-                        'series': invoice.invoice_series,
-                        'number': invoice.invoice_number,
-                        'timestamp': invoice.invoice_timestamp.isoformat(),
-                        'provider': {
-                            'tax_provider_id': tax_provider_id,
-                            'tax_provider_name': tax_provider_name
-                        }
-                    })
+
                 else:
                     logger.error(f"❌ Failed to download: {filename}")
             except Exception as e:
@@ -153,11 +164,6 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
             logger.debug("Applying rate limit...")
             time.sleep(1)
         
-        index_file = output_path / 'index.json'
-        with open(index_file, 'w', encoding='utf-8') as f:
-            json.dump(index, f, indent=2, ensure_ascii=False)
-        
-        logger.info(f"✅ Created index at {index_file}")
         logger.info(f"📁 Downloads folder: {output_path.absolute()}")
 
 def parse_date(date_string):
@@ -173,13 +179,15 @@ if __name__ == "__main__":
                       help='Start date (DD/MM/YYYY)')
     parser.add_argument('--end-date', type=parse_date,
                       help='End date (DD/MM/YYYY)')
-    parser.add_argument('--output', default='downloads',
-                      help='Output directory (default: downloads)')
     
     args = parser.parse_args()
+    
+
+    
+    download_path = profile_manager.get_active_profile()['download_path']
     
     download_invoices(
         start_date=args.start_date,
         end_date=args.end_date,
-        output_dir=args.output
+        output_dir=download_path
     )

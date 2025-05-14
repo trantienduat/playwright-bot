@@ -32,6 +32,14 @@ class SoftDreamsDownloader(IInvoiceDownloader):
                         page = context.new_page()
                         
                         logger.info(f"🌐 Connecting to portal: {url}")
+                        try:
+                            page.goto(url, wait_until="load", timeout=3000)
+                        except Exception as e:
+                            logger.error(f"❌ Page navigation failed: {e}")
+                            logger.warning(f"⚠️ Domain {url} failed, trying alternative domain...")
+                            continue  # Switch to the next domain_page()
+                        
+                        logger.info(f"🌐 Connecting to portal: {url}")
                         page.goto(url, wait_until="networkidle")
 
                         logger.info("📝 Filling tracking code...")
@@ -88,3 +96,9 @@ class SoftDreamsDownloader(IInvoiceDownloader):
                 browser.close()
                 
             return success
+        
+    def download_invoice(self, invoice: Invoice, output_path: Path) -> bool:
+        """
+        Download invoice with validation and retry logic
+        """
+        return self.download_with_validation(invoice, output_path)

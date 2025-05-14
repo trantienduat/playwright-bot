@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich import print as rprint
+from config.profile_manager import profile_manager
 import csv
 
 app = typer.Typer(help="Invoice Database CLI")
@@ -187,6 +188,14 @@ def load_invoices_from_json(session, json_path):
                 if field.get('ttruong') == "Matracuu" and tax_provider_name == "vina":
                     tracking_code = field.get('dlieu')
                     break
+        
+                if field.get('ttruong') == "Fkey" and tax_provider_name == "hilo":
+                    tracking_code = field.get('dlieu')
+                    break
+                
+                if field.get('ttruong') == "TransactionID" and tax_provider_name == "misa":
+                    tracking_code = field.get('dlieu')
+                    break
             
         # Getting tracking_code for buuchinhvt
         if raw.get('mhdon') and tax_provider_name == "buuchinhvt":
@@ -351,7 +360,11 @@ def fetch_and_update_invoices(session):
     """
     Fetch invoices for seller 52 and update tracking codes - KIM TÍN
     """
-    KINTIM_list_path = "data/KIMTIN_list.txt"
+    KINTIM_list_path = profile_manager.get_active_profile().get('KIMTIN_list_path')
+    if not KINTIM_list_path or not Path(KINTIM_list_path).exists():
+        rprint(f"[red]❌ KIMTIN_list_path not found in config or file does not exist[/red]")
+        return
+    rprint(f"[green]✓ KIMTIN_list_path: {KINTIM_list_path}[/green]")
     
     # Fetch seller ID by name containing "KIM TÍN"
     seller = session.query(Seller).filter(Seller.name.contains("KIM TÍN")).first()
@@ -390,7 +403,7 @@ def fetch(
     input_file: str = typer.Option(..., "--input", "-i", help="Path to input JSON file")
 ):
     """Fetch and load all invoice data from JSON file into database"""
-    engine = create_engine('sqlite:///vantoi.db')
+    engine = profile_manager.get_engine()
     init_db()
     
     with Session(engine) as session:
@@ -420,7 +433,7 @@ def stats(
     end_date: str = typer.Option(None, "--end-date", "-e", help="End date (DD/MM/YYYY)")
 ):
     """Show invoice database statistics, including tax providers and their invoices in the date range"""
-    engine = create_engine('sqlite:///vantoi.db')
+    engine = profile_manager.get_engine()
     
     with Session(engine) as session:
         # Parse date range
@@ -513,7 +526,7 @@ def query(
         python3 db.py query --start-date "01/02/2025" --end-date "28/02/2025" --output "Feb_invoices.csv"
     """
 
-    engine = create_engine('sqlite:///vantoi.db')
+    engine = profile_manager.get_engine()
     
     with Session(engine) as session:
         # Parse date range

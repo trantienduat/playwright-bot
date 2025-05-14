@@ -30,16 +30,11 @@ class ViettelDownloader(IInvoiceDownloader):
                 if not invoice.seller.tax_code or not invoice.tracking_code:
                     raise ValueError("Missing required fields: seller.tax_code or tracking_code")
 
-                logger.info("📝 Filling form fields...")
                 page.fill("[formcontrolname='supplierTaxCode']", invoice.seller.tax_code)
                 page.fill("[formcontrolname='reservationCode']", invoice.tracking_code)
-                logger.debug(f"Form filled with tax_code: {invoice.seller.tax_code}")
-
-                logger.info("⚠️ Please complete CAPTCHA and click Search button manually...")
                 
                 # Wait for download button to appear after manual search
                 download_button = "[class='btn btn-link mr-2']"
-                logger.info("⏳ Waiting for download button to appear...")
                 page.wait_for_selector(download_button, state="visible", timeout=60000)
                 
                 # Handle download
@@ -61,3 +56,10 @@ class ViettelDownloader(IInvoiceDownloader):
                 return False
             finally:
                 browser.close()
+
+
+    def download_invoice(self, invoice: Invoice, output_path: Path) -> bool:
+        """
+        Download invoice with validation and retry logic
+        """
+        return self.download_with_validation(invoice, output_path)
