@@ -2,6 +2,7 @@ from datetime import datetime
 import argparse
 import json
 import re
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from db import get_invoices
@@ -53,65 +54,19 @@ logger = logging.getLogger('invoice_downloader')
 #         return False
 
 def construct_file_name(text: str) -> str:
-    """Remove Vietnamese tone marks, normalize a given text, remove specific substrings, and remove all spaces."""
+    """Remove Vietnamese tone marks, normalize a given text and replace with short name."""
     if not isinstance(text, str):
         raise ValueError("Input must be a string")
 
-    normalized_text = re.sub("và", '', text, flags=re.IGNORECASE)
+    # Get seller_short_name mappings from active profile
+    seller_mappings = profile_manager.get_active_profile().get('seller_short_name', {})
+    
+    # First try exact match in the mappings
+    if text in seller_mappings:
+        return seller_mappings[text]
+    return None
+    
 
-    # Use unidecode to remove diacritical marks and normalize text
-    normalized_text = unidecode(text)
-
-    normalized_text = normalized_text.replace(' ', '')
-
-    # Replace specific substrings with desired replacements
-    substrings_to_replace = {
-        'CONGTYTNHHTHUONGMAIVANTAINGUYENPHUOC': 'NGUYENPHUOC',
-        'CONGTYTNHHTHUONGMAIMAYVY': 'MAYVY',
-        'CONGTYCPDUOCPHAMPHUCTHIEN': 'PHUCTHIEN',
-        'CONGTYTNHHTHUONGMAIDICHVUTRANGTHIETBIYTEMINHTRI': 'MINHTRI',
-        'CONGTYTNHHFULLERTONHEALTHVIETNAM': 'FULLERTONHEALTHVIETNAM',
-        'CONGTYTNHHGRAB': 'GRAB',
-        'CONGTYTNHHNEMVANTHANH': 'NEMVANTHANH',
-        'CONGTYCOPHANMORINAGANUTRITIONALFOODSVIETNAM': 'MORINAGANUTRITIONALFOODSVIETNAM',
-        'CongTyTNHHThuongMaiDauTuDinhVang': 'DinhVang',
-        'CONGTYCOPHANTHUONGMAIDICHVUDOANKHOAHOC': 'DOANKHOAHOC',
-        'CONGTYTRACHNHIEMHUUHANTHUONGMAIDICHVUTHIETBIYTENGUYENKHOA': 'NGUYENKHOA',
-        'CONGTYTNHHTUVANVBP': 'VBP',
-        'CONGTYTNHHTHIENANNAM': 'THIENANNAM',
-        'CONGTYCOPHANTOPCVVIETNAM': 'TOPCVVIETNAM',
-        'CONGTYTNHHDAUTUVAKINHDOANHBATDONGSANMYCANH': 'MYCANH',
-        'CONGTYTNHHSANXUATTHUONGMAIVADICHVUALOBUYVIETNAM': 'ALOBUYVIETNAM',
-        'CONGTYTNHHSAIGONBOULEVARDCOMPLEX': 'SAIGONBOULEVARDCOMPLEX',
-        'CONGTYTNHHTHIETBIYTETHIENTRI': 'THIENTRI',
-        'CONGTYTNHHMOTTHANHVIENNHATCHIMAI': 'NHATCHIMAI',
-        'CONGTYTNHHKINGSMENVIETNAM': 'KINGSMENVIETNAM',
-        'CONGTYCPDUOCLIEUTRUNGUONG2\\(PHYTOPHARMA\\)': 'DUOCLIEUTRUNGUONG2',
-        'CONGTYTNHHDKSHVIETNAM': 'DKSHVIETNAM',
-        'CONGTYTNHHTHIETBIDUYMINH': 'DUYMINH',
-        'CONGTYTNHHTRANGTHIETBIYTETRANVATRUNG': 'TRANVATRUNG',
-        'CONGTYCOPHANNIPPONPAPERVIETHOAMY': 'NIPPONPAPERVIETHOAMY',
-        'CONGTYTNHHTHUONGMAIVADICHVUCAFAM': 'CAFAM',
-        'CONGTYCOPHANCONGNGHEC+': 'CONGNGHEC',
-        'CONGTYTNHHCOWAYVINA': 'COWAYVINA',
-        'CONGTYTNHHSAIGONBOULEVARDCOMPLEX': 'SAIGONBOULEVARDCOMPLEX',
-        'CONGTYCOPHANDAUTUTHIETBIYTETHIENAN': 'THIENAN',
-        'CONGTYTNHHINSONGTHINH': 'SONGTHINH',
-        'CONGTYTNHHSGSAGAWAVIETNAM': 'SGSAGAWAVIETNAM',
-        'CONGTYCOPHANANHDUONGVIETNAM': 'ANHDUONGVIETNAM',
-        'CONGTYTNHHTHIETBIYTENDENT': 'NDENT',
-        'TrungtamKinhdoanhVNPTthanhphoHoChiMinh-ChinhanhTongcongtyDichvuVienthong': 'VNPT_HCM',
-        'TRUNGTAMKINHDOANHVNPT-HANOI-CHINHANHTONGCONGTYDICHVUVIENTHONG': 'VNPT_HaNoi',
-    }
-
-    for old, new in substrings_to_replace.items():
-        normalized_text = re.sub(old, new, normalized_text, flags=re.IGNORECASE)
-
-    # Remove all spaces
-    normalized_text = normalized_text.replace('.', '')
-
-    # Return the cleaned text
-    return normalized_text.strip()
 
 
 def get_downloader(provider_name: str) -> IInvoiceDownloader:
@@ -151,8 +106,15 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
         
         for invoice in invoices:
             logger.debug(f"Processing invoice: {invoice.invoice_series}-{invoice.invoice_number}")
-            month_abbr = invoice.invoice_timestamp.strftime("%b") if invoice.invoice_timestamp else "Unknown"
-            filename = f"{month_abbr}_{invoice.invoice_form}_{invoice.invoice_series}_{invoice.invoice_number}.pdf"
+            seller = session.query(Seller).filter_by(id=invoice.seller_id).first()
+            seller_name = seller.name if seller else "Unknown"
+            filename = construct_file_name(seller_name)
+            
+            if filename is None:
+                logger.error(f"❌ MISSING short name for {seller_name}. Skipping invoice.")
+                continue
+            filename = f"{filename}_{invoice.invoice_number}.pdf"
+            
             filepath = output_path / filename
             
             if filepath.exists():
@@ -160,6 +122,10 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
                     invoice.is_downloaded = 1
                     session.commit()
                 logger.info(f"⏭ Skipping existing {filename}")
+                continue
+            
+            if not invoice.tracking_code:
+                logger.error(f"❌ Missing tracking code for {filename}")
                 continue
             
             tax_provider_id = invoice.tax_provider_id
@@ -183,7 +149,7 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
                 continue
             
             try:
-                success = downloader.download(invoice, filepath)
+                success = downloader.download_invoice(invoice, filepath)
                 print()
                 if success:
                     logger.info(f"✅ Successfully downloaded: {filename}")
@@ -213,13 +179,15 @@ if __name__ == "__main__":
                       help='Start date (DD/MM/YYYY)')
     parser.add_argument('--end-date', type=parse_date,
                       help='End date (DD/MM/YYYY)')
-    parser.add_argument('--output', default='downloads',
-                      help='Output directory (default: downloads)')
     
     args = parser.parse_args()
+    
+
+    
+    download_path = profile_manager.get_active_profile()['download_path']
     
     download_invoices(
         start_date=args.start_date,
         end_date=args.end_date,
-        output_dir=args.output
+        output_dir=download_path
     )

@@ -77,3 +77,9 @@ class VinaDownloader(IInvoiceDownloader):
                 return False
             finally:
                 browser.close()
+
+    def download_invoice(self, invoice: Invoice, output_path: Path) -> bool:
+        """
+        Download invoice with validation and retry logic
+        """
+        return self.download_with_validation(invoice, output_path)

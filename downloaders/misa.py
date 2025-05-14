@@ -17,3 +17,9 @@ class MISADownloader(IInvoiceDownloader):
         url = f"https://www.meinvoice.vn/tra-cuu/DownloadHandler.ashx?Type=pdf&Viewer=1&Code={invoice.tracking_code}"
         logger.info(f"🔗 MISA Downloader: {url}")
         return download_by_url(url, output_path.parent, output_path.name)
+
+    def download_invoice(self, invoice: Invoice, output_path: Path) -> bool:
+        """
+        Download invoice with validation and retry logic
+        """
+        return self.download_with_validation(invoice, output_path)

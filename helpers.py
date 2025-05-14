@@ -46,7 +46,6 @@ def download_by_url(url, download_folder, filename="downloaded_invoice.pdf"):
         total_size = int(response.headers.get('content-length', 0))
         downloaded = 0
         
-        print(f"Saving PDF to: {output_path}")
         with open(output_path, 'wb') as file:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:  # Filter out keep-alive chunks
@@ -58,8 +57,7 @@ def download_by_url(url, download_folder, filename="downloaded_invoice.pdf"):
                         progress = int(50 * downloaded / total_size)
                         sys.stdout.write(f"\r[{'=' * progress}{' ' * (50-progress)}] {downloaded/1024/1024:.2f}MB/{total_size/1024/1024:.2f}MB")
                         sys.stdout.flush()
-        
-        print("\nDownload complete!")
+
         print(f"File saved to: {output_path}")
         return True
         

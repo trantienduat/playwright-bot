@@ -16,9 +16,6 @@ logger = logging.getLogger('kimtin')
 class FPTDownloader(IInvoiceDownloader):
 
     def download(self, invoice: Invoice, output_path: Path) -> bool:
-        if not invoice.tracking_code:
-            logger.error("❌ Missing tracking code")
-            return False
         logger.info(f"🤖 Starting FPT downloader for invoice {invoice.invoice_series}-{invoice.invoice_number}")
         try:
             # Construct the URL
@@ -44,3 +41,9 @@ class FPTDownloader(IInvoiceDownloader):
             print(f"❌ Error: File not found at {output_path}")
             print("Please ensure the file exists in the data directory")
         return True
+
+    def download_invoice(self, invoice: Invoice, output_path: Path) -> bool:
+        """
+        Download invoice with validation and retry logic
+        """
+        return self.download_with_validation(invoice, output_path)
