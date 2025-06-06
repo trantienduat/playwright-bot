@@ -53,7 +53,7 @@ logger = logging.getLogger('invoice_downloader')
 #     def download(self, invoice: Invoice, output_path: Path) -> bool:
 #         return False
 
-def construct_file_name(text: str) -> str:
+def construct_file_name(text: str, month_abbr: str) -> str:
     """Remove Vietnamese tone marks, normalize a given text and replace with short name."""
     if not isinstance(text, str):
         raise ValueError("Input must be a string")
@@ -63,9 +63,10 @@ def construct_file_name(text: str) -> str:
     
     # First try exact match in the mappings
     if text in seller_mappings:
-        return seller_mappings[text]
-    return None
+        return f"{month_abbr}_{seller_mappings[text]}"
     
+    # If not found, raise an error instead of returning None
+    raise KeyError(f"Seller '{text}' not found in seller_short_name mapping. Please add it to your profile configuration.")
 
 
 
@@ -108,12 +109,20 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
             logger.debug(f"Processing invoice: {invoice.invoice_series}-{invoice.invoice_number}")
             seller = session.query(Seller).filter_by(id=invoice.seller_id).first()
             seller_name = seller.name if seller else "Unknown"
-            filename = construct_file_name(seller_name)
             
-            if filename is None:
-                logger.error(f"❌ MISSING short name for {seller_name}. Skipping invoice.")
+            # Extract month abbreviation from invoice.invoice_timestamp
+            invoice_month = None
+            if hasattr(invoice, "invoice_timestamp") and invoice.invoice_timestamp:
+                invoice_month = invoice.invoice_timestamp.strftime("%b")
+            else:
+                invoice_month = "Unknown"
+
+            try:
+                filename = construct_file_name(seller_name, invoice_month)
+                filename = f"{filename}_{invoice.invoice_number}.pdf"
+            except KeyError as e:
+                logger.error(f"❌ {e}")
                 continue
-            filename = f"{filename}_{invoice.invoice_number}.pdf"
             
             filepath = output_path / filename
             
@@ -125,7 +134,7 @@ def download_invoices(start_date=None, end_date=None, output_dir='downloads'):
                 continue
             
             if not invoice.tracking_code:
-                logger.error(f"❌ Missing tracking code for {filename}")
+                logger.info(f"⏭ Skipping {filename} (missing tracking code)")
                 continue
             
             tax_provider_id = invoice.tax_provider_id
