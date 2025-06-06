@@ -1,0 +1,31 @@
+@startuml
+!theme plain
+
+package "playwright_bot" {
+  [download_invoice.py] -down-> [downloaders/]
+  [download_invoice.py] -down-> [models.py]
+  [download_invoice.py] -down-> [db.py]
+  [download_invoice.py] -down-> [config/profile_manager.py]
+}
+
+package "downloaders" {
+  [softdream.py]
+  [viettel.py]
+  [misa.py]
+  [fpt.py]
+  [thaison.py]
+  [hilo.py]
+  [vina.py]
+  [buuchinhvt.py]
+  [invoice_downloader.py] <<interface>>
+}
+
+[downloaders/*] ..|> [invoice_downloader.py] : implements
+
+[db.py] -down-> [models.py]
+[db.py] -down-> [config/profile_manager.py]
+
+[models.py] <.. [config/profile_manager.py] : uses config
+
+@enduml
+

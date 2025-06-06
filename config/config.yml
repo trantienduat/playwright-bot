@@ -182,6 +182,7 @@ profiles:
       "CÔNG TY TNHH THƯƠNG MẠI VIỄN THÔNG THANH HÀ": "THANHHA"
       "CÔNG TY CỔ PHẦN DIỆP TẤN PHÁT": "DIEPTANPHAT"
       "CÔNG TY TNHH TM LIÊN PHÁT KHOA VIỆT NAM": "LIENPHATKHOAVIETNAM"
+      "CÔNG TY TNHH THƯƠNG MẠI CƠ KHÍ TÙNG NGŨ KIM": "TUNGNGUKIM"
     # TODO: load start_date and end_date from config
     # start_date: "01/02/2025"
     # end_date: "30/04/2025"

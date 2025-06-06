@@ -268,36 +268,74 @@ def get_invoices(session, start_date=None, end_date=None, tax_code=None):
 
     return query.order_by(Invoice.invoice_timestamp.desc()).all()
 
-def get_invoice_stats(session):
-    """Get summary stats of invoices"""
-    total = session.query(Invoice).count()
+def get_invoice_stats(session, start_date=None, end_date=None):
+    """Get summary stats of invoices with optional date range filter"""
+    # Base query for total count
+    total_query = session.query(Invoice)
+    if start_date:
+        total_query = total_query.filter(Invoice.invoice_timestamp >= start_date)
+    if end_date:
+        total_query = total_query.filter(Invoice.invoice_timestamp <= end_date)
     
-    # Get date range
-    date_range = session.query(
+    total = total_query.count()
+    
+    # Get date range with filters
+    date_range_query = session.query(
         func.min(Invoice.invoice_timestamp),
         func.max(Invoice.invoice_timestamp)
-    ).first()
+    )
+    if start_date:
+        date_range_query = date_range_query.filter(Invoice.invoice_timestamp >= start_date)
+    if end_date:
+        date_range_query = date_range_query.filter(Invoice.invoice_timestamp <= end_date)
     
-    # Get tax providers and their occurrence with download stats
-    tax_provider_stats = session.query(
+    date_range = date_range_query.first()
+    
+    # Get tax providers and their occurrence with download stats (filtered)
+    tax_provider_query = session.query(
         TaxProvider.name,
         func.count(Invoice.id),
         func.sum(case((Invoice.is_downloaded == 1, 1), else_=0)).label('downloaded_count')
-    ).join(Invoice, TaxProvider.id == Invoice.tax_provider_id)\
-     .group_by(TaxProvider.name).all()
+    ).join(Invoice, TaxProvider.id == Invoice.tax_provider_id)
     
-    # Get overall download stats
-    download_stats = session.query(
+    if start_date:
+        tax_provider_query = tax_provider_query.filter(Invoice.invoice_timestamp >= start_date)
+    if end_date:
+        tax_provider_query = tax_provider_query.filter(Invoice.invoice_timestamp <= end_date)
+    
+    tax_provider_stats = tax_provider_query.group_by(TaxProvider.name).all()
+    
+    # Get overall download stats (filtered)
+    download_query = session.query(
         func.count(Invoice.id),
         func.sum(case((Invoice.is_downloaded == 1, 1), else_=0))
-    ).first()
+    )
+    if start_date:
+        download_query = download_query.filter(Invoice.invoice_timestamp >= start_date)
+    if end_date:
+        download_query = download_query.filter(Invoice.invoice_timestamp <= end_date)
     
-    # Get stats for invoices with no tax provider
-    no_tax_provider_count = session.query(Invoice).filter(Invoice.tax_provider_id.is_(None)).count()
-    no_tax_provider_downloaded = session.query(func.count(Invoice.id)).filter(
+    download_stats = download_query.first()
+    
+    # Get stats for invoices with no tax provider (filtered)
+    no_tax_provider_query = session.query(Invoice).filter(Invoice.tax_provider_id.is_(None))
+    if start_date:
+        no_tax_provider_query = no_tax_provider_query.filter(Invoice.invoice_timestamp >= start_date)
+    if end_date:
+        no_tax_provider_query = no_tax_provider_query.filter(Invoice.invoice_timestamp <= end_date)
+    
+    no_tax_provider_count = no_tax_provider_query.count()
+    
+    no_tax_provider_downloaded_query = session.query(func.count(Invoice.id)).filter(
         Invoice.tax_provider_id.is_(None),
         Invoice.is_downloaded == 1
-    ).scalar()
+    )
+    if start_date:
+        no_tax_provider_downloaded_query = no_tax_provider_downloaded_query.filter(Invoice.invoice_timestamp >= start_date)
+    if end_date:
+        no_tax_provider_downloaded_query = no_tax_provider_downloaded_query.filter(Invoice.invoice_timestamp <= end_date)
+    
+    no_tax_provider_downloaded = no_tax_provider_downloaded_query.scalar()
     
     return {
         'total_invoices': total,
@@ -440,29 +478,26 @@ def stats(
         start = datetime.strptime(start_date, "%d/%m/%Y") if start_date else None
         end = datetime.strptime(end_date, "%d/%m/%Y") if end_date else None
         
-        # Get stats
-        stats = get_invoice_stats(session)
-        
-        # Get invoices grouped by tax provider in the date range
-        query = session.query(
-            TaxProvider.name,
-            func.count(Invoice.id)
-        ).join(Invoice, TaxProvider.id == Invoice.tax_provider_id)
-        
-        if start:
-            query = query.filter(Invoice.invoice_timestamp >= start)
+        # Normalize end date to end of day
         if end:
-            query = query.filter(Invoice.invoice_timestamp <= end)
+            end = datetime(end.year, end.month, end.day, 23, 59, 59)
         
-        tax_provider_invoices = query.group_by(TaxProvider.name).all()
+        # Get stats with date range
+        stats = get_invoice_stats(session, start_date=start, end_date=end)
+        
+        # Remove the redundant query since it's now handled in get_invoice_stats
         
         # Display stats
+        date_range_text = ""
+        if start or end:
+            date_range_text = f"\nFiltered by: {start.strftime('%d/%m/%Y') if start else 'Beginning'} to {end.strftime('%d/%m/%Y') if end else 'End'}"
+        
         console.print(Panel.fit(
             f"""[bold blue]Invoice Database Statistics[/bold blue]
             
 Total Invoices: {stats['total_invoices']}
 Downloaded: {stats['total_downloaded']} ({stats['download_percentage']}%)
-Date Range: {stats['date_from']} to {stats['date_to']}
+Date Range: {stats['date_from']} to {stats['date_to']}{date_range_text}
             """,
             title="📊 Statistics"
         ))

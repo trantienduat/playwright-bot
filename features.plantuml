@@ -1,0 +1,18 @@
+@startuml
+!theme plain
+
+actor User
+
+rectangle "playwright_bot Features" {
+  usecase "Scrape invoices\nfrom hoadondientu.gov" as UC1
+  usecase "Import invoices\nfrom JSON to DB" as UC2
+  usecase "Prepare KIMTIN_list.txt\n(manual step)" as UC3
+  usecase "Download invoices\nby date range" as UC4
+}
+
+User --> UC1 : python3 scraper.py\n--start-date --end-date
+User --> UC2 : python3 db.py fetch\n--input <json>
+User --> UC3 : Manual
+User --> UC4 : python3 download_invoice.py\n--start-date --end-date
+
+@enduml
