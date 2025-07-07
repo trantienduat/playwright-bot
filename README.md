@@ -1,22 +1,24 @@
 # Playwright Bot
 
+A comprehensive invoice automation system for Vietnamese electronic invoices with web scraping, database management, and automated downloading capabilities.
+
 ## Feature Status
 
 | Feature               | Code | Test | Docs |
 | --------------------- | ---- | ---- | ---- |
-| Database Operations   | 🚧    | 🚧    | 🚧    |
-| SoftDreams Downloader | ✅    | 🚧    | 🚧    |
-| Viettel Downloader    | ✅    | 🚧    | 🚧    |
-| MISA Downloader       | ✅    | 🚧    | 🚧    |
-| VNPT Downloader       | 🚧    | 🚧    | 🚧    |
-| FPT Downloader        | 🚧    | 🚧    | 🚧    |
-| BKAV Downloader       | 🚧    | 🚧    | 🚧    |
-| DNA Downloader        | 🚧    | 🚧    | 🚧    |
-| ThaiSon Downloader    | 🚧    | 🚧    | 🚧    |
-| BuuChinhVT Downloader | 🚧    | 🚧    | 🚧    |
-| Wintech Downloader    | 🚧    | 🚧    | 🚧    |
-| Visnam Downloader     | 🚧    | 🚧    | 🚧    |
-| CLI Interface         | 🚧    | 🚧    | 🚧    |
+| Database Operations   | ✅    | 🚧    | ✅    |
+| Invoice Scraper       | ✅    | 🚧    | ✅    |
+| SoftDreams Downloader | ✅    | 🚧    | ✅    |
+| Viettel Downloader    | ✅    | 🚧    | ✅    |
+| MISA Downloader       | ✅    | 🚧    | ✅    |
+| FPT Downloader        | ✅    | 🚧    | 🚧    |
+| ThaiSon Downloader    | ✅    | 🚧    | 🚧    |
+| BuuChinhVT Downloader | ✅    | 🚧    | ✅    |
+| Vina Downloader       | ✅    | 🚧    | 🚧    |
+| Hilo Downloader       | ✅    | 🚧    | 🚧    |
+| CLI Interface         | ✅    | 🚧    | ✅    |
+
+**Legend**: ✅ Implemented | 🚧 Work in Progress | ❌ Not Started
 
 ## How downloaders work
 
@@ -43,71 +45,171 @@ Uses direct download URL approach. The process:
 3. Shows download progress with a progress bar
 4. No CAPTCHA required
 
-### buuchinhvt (WIP)
-1. construct url as `https://{tax_code}-tt78.vnpt-invoice.com.vn/HomeNoLogin/SearchByFkey`
-2. fill tracking_code & search -> retrieving checkCode
-3. consider to extract checkCode from then download from `https://{tax_code}-tt78.vnpt-invoice.com.vn/HomeNoLogin/downloadPDF?checkCode=8+0arNQParpTotMzLDdWVGzoBP6SJRtbzgwduEsVNdY=`
-```html
-<a style="color: #1068bf;" title="Tải file pdf" href="/HomeNoLogin/downloadPDF?checkCode=8+0arNQParpTotMzLDdWVGzoBP6SJRtbzgwduEsVNdY="><i class="icon-download-alt"></i></a>
-```
+### BuuChinhVT Downloader
+Uses VNPT invoice portal. The process:
+1. Constructs URL as `https://{tax_code}-tt78.vnpt-invoice.com.vn/HomeNoLogin/SearchByFkey`
+2. Fills tracking_code and searches to retrieve checkCode
+3. Extracts checkCode from response and downloads from `https://{tax_code}-tt78.vnpt-invoice.com.vn/HomeNoLogin/downloadPDF?checkCode={checkCode}`
+
+### Other Downloaders
+- **FPT Downloader**: Handles FPT invoice system
+- **ThaiSon Downloader**: Supports ThaiSon invoice platform
+- **Vina Downloader**: Works with Vina invoice services
+- **Hilo Downloader**: Integrates with Hilo invoice system
+
+## System Architecture
+
+### Invoice Scraper (`scraper.py`)
+Web scraper for the Vietnamese government electronic invoice portal:
+- Uses Playwright to automate browser interactions
+- Handles authentication with manual CAPTCHA completion
+- Fetches invoices from multiple API endpoints
+- Supports pagination for large datasets
+- Exports data to JSON format organized by profile and date
+
+### Database Management (`db.py`)
+Comprehensive CLI for invoice database operations:
+- SQLite/PostgreSQL database support via SQLAlchemy
+- Profile-based configuration management
+- Data import/export functionality
+- Advanced querying and filtering
+- Statistics and reporting capabilities
+
+### Invoice Downloader (`download_invoice.py`)
+Automated invoice downloading system:
+- Supports multiple tax provider platforms
+- Handles different authentication methods
+- Implements rate limiting and error handling
+- Organizes files with intelligent naming conventions
+- Tracks download status in database
 
 ## Usage
 
-### Database CLI
+### 1. Invoice Scraping
 
-The `db.py` script provides a CLI for managing the invoice database. Below are some common commands:
+First, scrape invoices from the government portal for a specific date range:
 
-1. **Fetch Data**: Load data from JSON files into the database.
-   ```bash
-   python3 db.py fetch --input <JSON_FILE>
-   ```
+```bash
+python3 scraper.py --start-date 01/06/2025 --end-date 30/06/2025
+```
 
-   - `--input`: Path to the input JSON file containing invoice data.
+**Parameters:**
+- `--start-date`: Start date in `DD/MM/YYYY` format (required)
+- `--end-date`: End date in `DD/MM/YYYY` format (required)
 
-   Example:
-   ```bash
-   python3 db.py fetch --input data/invoices.json
-   ```
+**Features:**
+- Automated browser navigation with Playwright
+- Manual CAPTCHA completion support
+- Multi-endpoint data fetching
+- Profile-based output organization
+- JSON export to `data/{profile}/{year}_{month}_invoices.json`
 
-2. **View Statistics**: Display summary statistics of the invoice database, including tax providers and their invoices in a date range.
-   ```bash
-   python3 db.py stats --start-date <START_DATE> --end-date <END_DATE>
-   ```
+### 2. Database Management
 
-   - `--start-date`: Start date in `DD/MM/YYYY` format (optional).
-   - `--end-date`: End date in `DD/MM/YYYY` format (optional).
+The `db.py` script provides comprehensive database operations:
 
-   Example:
-   ```bash
-   python3 db.py stats --start-date 01/01/2023 --end-date 31/01/2023
-   ```
+#### Load Data into Database
+```bash
+python3 db.py fetch --input data/profile_name/2025_Jun_invoices.json
+```
 
-3. **Query Invoices**: Query invoices with optional filters.
-   ```bash
-   python3 db.py query --tax-code <TAX_CODE> --days <DAYS> --output <OUTPUT_FILE>
-   ```
+**Parameters:**
+- `--input` / `-i`: Path to input JSON file containing invoice data
 
-   - `--tax-code`: Filter by provider tax code.
-   - `--days`: Number of days to look back (default: 30).
-   - `--output`: Save the query results to a JSON file.
+**Process:**
+- Loads tax providers, sellers, and invoices
+- Handles duplicate detection and merging
+- Updates tracking codes for special cases (e.g., KIM TÍN)
+- Maintains data integrity with constraints
 
-### Invoice Downloader
+#### View Database Statistics
+```bash
+python3 db.py stats --start-date 01/06/2025 --end-date 30/06/2025
+```
 
-The `download_invoice.py` script allows downloading invoices based on date range and other filters.
+**Parameters:**
+- `--start-date` / `-s`: Start date in `DD/MM/YYYY` format (optional)
+- `--end-date` / `-e`: End date in `DD/MM/YYYY` format (optional)
 
-1. **Download Invoices**: Download invoices for a specific date range.
-   ```bash
-   python3 download_invoice.py --start-date <START_DATE> --end-date <END_DATE> --output <OUTPUT_DIR>
-   ```
+**Output:**
+- Total invoices and download statistics
+- Tax provider breakdown with download rates
+- Date range analysis
+- Visual tables with rich formatting
 
-   - `--start-date`: Start date in `DD/MM/YYYY` format.
-   - `--end-date`: End date in `DD/MM/YYYY` format.
-   - `--output`: Directory to save downloaded invoices (default: `downloads`).
+#### Query Invoices
+```bash
+python3 db.py query --start-date 01/02/2025 --end-date 28/02/2025 --output Feb_invoices.csv
+```
 
-   Example:
-   ```bash
-   python3 download_invoice.py --start-date 01/02/2025 --end-date 28/02/2025 --output invoices
-   ```
+**Parameters:**
+- `--tax-code` / `-t`: Filter by seller tax code
+- `--start-date` / `-s`: Start date in `DD/MM/YYYY` format
+- `--end-date` / `-e`: End date in `DD/MM/YYYY` format
+- `--is-downloaded` / `-id`: Filter by download status (true/false)
+- `--seller-id` / `-sid`: Filter by seller ID
+- `--tax-provider-id` / `-tpid`: Filter by tax provider ID
+- `--output` / `-o`: Export results to CSV file
+
+### 3. Invoice Downloading
+
+Download invoices automatically using various provider platforms:
+
+```bash
+python3 download_invoice.py --start-date 01/05/2025 --end-date 31/05/2025
+```
+
+**Parameters:**
+- `--start-date`: Start date in `DD/MM/YYYY` format (required)
+- `--end-date`: End date in `DD/MM/YYYY` format (required)
+
+**Features:**
+- Multi-platform support (9 different providers)
+- Intelligent file naming with month prefix
+- Download status tracking in database
+- Rate limiting and error handling
+- Profile-based output directory configuration
+- Automatic skip for existing files
+
+**Supported Platforms:**
+- SoftDreams (easyinvoice)
+- Viettel (vinvoice)
+- MISA (meinvoice)
+- FPT
+- ThaiSon
+- BuuChinhVT (VNPT)
+- Vina
+- Hilo
+
+## Configuration
+
+The system uses profile-based configuration managed by `profile_manager`:
+
+- **Database settings**: Connection strings and credentials
+- **Download paths**: Output directories for different file types
+- **Seller mappings**: Short name mappings for file naming
+- **Provider credentials**: Authentication details for various platforms
+- **KIMTIN list path**: Special tracking code file location
+
+## File Organization
+
+```
+data/
+├── profile_name/
+│   └── 2025_Jun_invoices.json
+downloads/
+├── profile_name/
+│   ├── Jun_CompanyShort_12345.pdf
+│   └── Jun_AnotherCompany_67890.pdf
+```
+
+## Error Handling
+
+- **Graceful degradation**: Missing providers don't stop the process
+- **Rate limiting**: Prevents overwhelming target servers
+- **Retry mechanisms**: Handles temporary network issues
+- **Comprehensive logging**: Detailed progress and error reporting
+- **Data validation**: Ensures data integrity throughout the pipeline
 
 
 
