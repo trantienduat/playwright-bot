@@ -183,6 +183,13 @@ profiles:
       "CÔNG TY CỔ PHẦN DIỆP TẤN PHÁT": "DIEPTANPHAT"
       "CÔNG TY TNHH TM LIÊN PHÁT KHOA VIỆT NAM": "LIENPHATKHOAVIETNAM"
       "CÔNG TY TNHH THƯƠNG MẠI CƠ KHÍ TÙNG NGŨ KIM": "TUNGNGUKIM"
+      "CHI NHÁNH XĂNG DẦU SÀI GÒN - CÔNG TY XĂNG DẦU KHU VỰC II TNHH MỘT THÀNH VIÊN": "CTYXANGDAUKHUVUCII"
+      "CÔNG TY TRÁCH NHIỆM HỮU HẠN THƯƠNG MẠI - DỊCH VỤ THANH BÌNH SÀI GÒN": "THANHBINHSAIGON"
+      "CÔNG TY TNHH TM DV TRƯỜNG THỊNH PHÁT": "TRUONGTHINHPHAT"
+      "Công Ty Cổ Phần Đầu Tư Và Thương Mại Tây Ô TÔ": "TAYOTO"
+      "CÔNG TY TNHH THƯƠNG MẠI - DỊCH VỤ THU NGA": "THUNGA"
+      "CÔNG TY TNHH MTV KIM BÌNH": "KIMBINH"
+      "CÔNG TY XĂNG DẦU ĐỒNG NAI": "XANGDAUDONGNAI"
     # TODO: load start_date and end_date from config
     # start_date: "01/02/2025"
     # end_date: "30/04/2025"

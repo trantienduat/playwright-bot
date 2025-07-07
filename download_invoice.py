@@ -58,12 +58,16 @@ def construct_file_name(text: str, month_abbr: str) -> str:
     if not isinstance(text, str):
         raise ValueError("Input must be a string")
 
-    # Get seller_short_name mappings from active profile
-    seller_mappings = profile_manager.get_active_profile().get('seller_short_name', {})
-    
+    # Get seller_short_name mappings from active profile and strip keys
+    raw_mappings = profile_manager.get_active_profile().get('seller_short_name', {})
+    seller_mappings = {k.strip(): v for k, v in raw_mappings.items()}
+
+    # Strip input text
+    text_stripped = text.strip()
+
     # First try exact match in the mappings
-    if text in seller_mappings:
-        return f"{month_abbr}_{seller_mappings[text]}"
+    if text_stripped in seller_mappings:
+        return f"{month_abbr}_{seller_mappings[text_stripped]}"
     
     # If not found, raise an error instead of returning None
     raise KeyError(f"Seller '{text}' not found in seller_short_name mapping. Please add it to your profile configuration.")
